@@ -12,11 +12,8 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
         :root { --forest: #1a2e05; --grass: #3e5622; --dirt: #c5a059; }
-        
-        /* Forces the body to be exactly the height of the phone screen */
         html, body { height: 100%; margin: 0; padding: 0; background-color: #ffffff; overflow: hidden; }
         
-        /* Perfect centering for the login screen */
         .login-wrapper { 
             height: 100vh; 
             display: flex; 
@@ -66,14 +63,14 @@
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, onSnapshot, doc, updateDoc, deleteDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // Verified Config from your Screenshot
+        // UPDATED WITH YOUR EXACT CONFIG
         const firebaseConfig = {
-            apiKey: "AIzaSyAbPZO0PBMojki9axxrB5b30WqiVh4jgsE",
+            apiKey: "AIzaSyDKBNh28LkDEz0nyY6cfl6IiOHyzNlBd0U",
             authDomain: "npmapp-542dc.firebaseapp.com",
             projectId: "npmapp-542dc",
-            storageBucket: "npmapp-542dc.appspot.com",
-            messagingSenderId: "714816852874",
-            appId: "1:714816852874:web:e569408de4b487fd66ee73"
+            storageBucket: "npmapp-542dc.firebasestorage.app",
+            messagingSenderId: "111152583953",
+            appId: "1:111152583953:web:7114f316fc0c381e6ae8b0"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -109,11 +106,10 @@
             const handleLogin = async () => {
                 setError('');
                 try {
-                    // Added .toLowerCase() to email to prevent case-sensitivity errors
                     const res = await fb.signInWithEmailAndPassword(fb.auth, email.trim().toLowerCase(), pass);
                     onLogin(res.user);
                 } catch (e) {
-                    setError("Invalid Credentials. Check the user exists in Firebase Console.");
+                    setError("Login Failed. Double-check your email and password.");
                 }
             };
 
@@ -134,7 +130,7 @@
                         <input className="input-field" type="password" placeholder="••••••••" onChange={e=>setPass(e.target.value)} />
                     </div>
 
-                    {error && <p className="text-red-500 text-[10px] font-black mb-4 text-center uppercase max-w-[280px]">{error}</p>}
+                    {error && <p className="text-red-500 text-[10px] font-black mb-4 text-center uppercase">{error}</p>}
 
                     <button onClick={handleLogin} className="btn-primary">Log In</button>
                 </div>
