@@ -14,18 +14,16 @@
         :root { --forest: #1a2e05; --grass: #3e5622; --dirt: #c5a059; }
         body { background-color: #f8f8f8; font-family: -apple-system, system-ui, sans-serif; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
         
-        /* Fixed Form Spacing */
-        .form-group { @apply flex flex-col mb-6 w-full; }
-        .input-label { @apply text-xs font-black uppercase text-stone-500 mb-2 tracking-widest block; }
-        .input-field { @apply w-full p-4 rounded-xl border-2 border-stone-200 bg-white text-lg focus:border-[#3e5622] outline-none font-medium block shadow-sm; }
+        /* LOGIN SCREEN FIXES */
+        .login-container { @apply p-8 flex flex-col justify-center min-h-screen bg-white; }
+        .form-group { @apply flex flex-col mb-10 w-full; } /* Big gap between email and password blocks */
+        .input-label { @apply text-xs font-black uppercase text-stone-400 mb-4 tracking-[0.15em] block pl-1; } /* Added mb-4 to separate word from box */
+        .input-field { @apply w-full p-5 rounded-2xl border-2 border-stone-100 bg-stone-50 text-lg focus:border-[#3e5622] focus:bg-white outline-none font-medium block shadow-sm transition-all; }
         
-        /* iPhone Navigation Fix */
+        /* NAV & UI */
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-around; padding-top: 12px; padding-bottom: calc(20px + env(safe-area-inset-bottom)); z-index: 1000; box-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.05); }
-        .nav-btn { @apply flex flex-col items-center transition-all flex-1; }
-
         .sun-card { @apply bg-white rounded-3xl shadow-sm border border-stone-200 p-5 mb-4 active:scale-[0.98] transition-all; }
         .btn-primary { @apply bg-[#1a2e05] text-white font-black py-5 px-6 rounded-2xl shadow-lg active:bg-black w-full text-xl text-center block mt-4 disabled:opacity-50; }
-        
         .modal-overlay { @apply fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] flex items-end justify-center; }
         .modal-content { @apply bg-white w-full max-w-md rounded-t-[3rem] p-8 pb-32 animate-in slide-in-from-bottom duration-300 max-h-[92vh] overflow-y-auto shadow-2xl; }
     </style>
@@ -37,7 +35,6 @@
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, onSnapshot, doc, updateDoc, deleteDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // UPDATED CONFIG TO MATCH YOUR SCREENSHOT
         const firebaseConfig = {
             apiKey: "AIzaSyAbPZO0PBMojki9axxrB5b30WqiVh4jgsE",
             authDomain: "npmapp-542dc.firebaseapp.com",
@@ -86,12 +83,7 @@
                 }
             }, [user]);
 
-            const changeTab = (v) => {
-                setSelectedJob(null); setIsAddingCustomerAndJob(false); setIsAddingJob(null);
-                setView(v);
-            };
-
-            if (loading) return <div className="p-10 text-center font-bold text-stone-400 mt-20 italic uppercase tracking-widest">NPM Loading...</div>;
+            if (loading) return <div className="p-10 text-center font-black text-stone-300 mt-20 italic uppercase tracking-[0.3em]">NPM Loading</div>;
             if (!user) return <LoginScreen onLogin={(u) => setUser(u)} />;
 
             return (
@@ -109,10 +101,10 @@
                     </main>
 
                     <div className="bottom-nav">
-                        <NavIcon active={view==='dashboard'} label="Home" icon="🏠" onClick={()=>changeTab('dashboard')} />
-                        <NavIcon active={view==='appointments'} label="Schedule" icon="📅" onClick={()=>changeTab('appointments')} />
-                        <NavIcon active={view==='customers'} label="Clients" icon="👥" onClick={()=>changeTab('customers')} />
-                        <NavIcon active={view==='reminders'} label="Remind" icon="🔔" onClick={()=>changeTab('reminders')} />
+                        <NavIcon active={view==='dashboard'} label="Home" icon="🏠" onClick={()=>setView('dashboard')} />
+                        <NavIcon active={view==='appointments'} label="Schedule" icon="📅" onClick={()=>setView('appointments')} />
+                        <NavIcon active={view==='customers'} label="Clients" icon="👥" onClick={()=>setView('customers')} />
+                        <NavIcon active={view==='reminders'} label="Remind" icon="🔔" onClick={()=>setView('reminders')} />
                     </div>
 
                     {isAddingCustomerAndJob && <NewClientAndJobModal onClose={()=>setIsAddingCustomerAndJob(false)} />}
@@ -123,7 +115,7 @@
         };
 
         const NavIcon = ({ active, label, icon, onClick }) => (
-            <button onClick={onClick} className={`nav-btn ${active ? 'text-[#3e5622] font-black' : 'text-stone-300'}`}>
+            <button onClick={onClick} className={`flex flex-col items-center flex-1 ${active ? 'text-[#3e5622] font-black' : 'text-stone-300'}`}>
                 <span className="text-2xl mb-1">{icon}</span>
                 <span className="text-[10px] uppercase font-bold tracking-tighter">{label}</span>
             </button>
@@ -132,21 +124,32 @@
         const LoginScreen = ({ onLogin }) => {
             const [email, setEmail] = useState(''); const [pass, setPass] = useState(''); const [loading, setLoading] = useState(false);
             const handleLogin = async () => {
-                if(!email || !pass) return alert("Email and Password required.");
+                if(!email || !pass) return alert("Please fill in both boxes.");
                 setLoading(true);
                 try {
-                    const res = await fb.signInWithEmailAndPassword(fb.auth, email, pass);
+                    const res = await fb.signInWithEmailAndPassword(fb.auth, email.trim(), pass);
                     onLogin(res.user);
                 } catch (err) {
-                    alert("Login Failed: " + err.message);
+                    alert("Login Error: " + err.message);
                 } finally { setLoading(false); }
             };
             return (
-                <div className="p-10 flex flex-col justify-center min-h-screen bg-white">
-                    <div className="mb-16 text-center"><h1 className="text-7xl font-black text-[#1a2e05] italic">NPM</h1><p className="font-bold text-stone-300 uppercase tracking-widest text-[10px] mt-4">Nance Property Maintenance</p></div>
-                    <div className="form-group"><label className="input-label">Username (Email):</label><input className="input-field" type="email" placeholder="example@email.com" onChange={e=>setEmail(e.target.value)} /></div>
-                    <div className="form-group"><label className="input-label">Password:</label><input className="input-field" type="password" placeholder="••••••••" onChange={e=>setPass(e.target.value)} /></div>
-                    <button onClick={handleLogin} disabled={loading} className="btn-primary">{loading ? "LOGGING IN..." : "LOG IN"}</button>
+                <div className="login-container">
+                    <div className="mb-20 text-center"><h1 className="text-7xl font-black text-[#1a2e05] italic">NPM</h1><p className="font-bold text-stone-300 uppercase tracking-[0.2em] text-[10px] mt-4">Nance Property Maintenance</p></div>
+                    
+                    <div className="form-group">
+                        <label className="input-label">Email Address:</label>
+                        <input className="input-field" type="email" placeholder="example@email.com" onChange={e=>setEmail(e.target.value)} />
+                    </div>
+
+                    <div className="form-group">
+                        <label className="input-label">Password:</label>
+                        <input className="input-field" type="password" placeholder="••••••••" onChange={e=>setPass(e.target.value)} />
+                    </div>
+
+                    <button onClick={handleLogin} disabled={loading} className="btn-primary mt-6">
+                        {loading ? "CHECKING..." : "LOG IN"}
+                    </button>
                 </div>
             );
         };
@@ -230,15 +233,15 @@
             };
             return (
                 <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}><div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-8"></div>
-                    <h3 className="text-2xl font-black mb-8 text-[#1a2e05]">New Client & Job</h3>
-                    <div className="form-group"><label className="input-label">Name:</label><input className="input-field" onChange={e=>setN(e.target.value)} placeholder="Client Name" /></div>
-                    <div className="form-group"><label className="input-label">Phone Number:</label><input type="tel" className="input-field" onChange={e=>setP(e.target.value)} placeholder="(863) 000-0000" /></div>
-                    <div className="form-group"><label className="input-label">Job Address:</label><input className="input-field" onChange={e=>setA(e.target.value)} placeholder="Street, City, Zip" /></div>
+                    <h3 className="text-2xl font-black mb-8 text-[#1a2e05]">New Client Entry</h3>
+                    <div className="form-group"><label className="input-label">Name:</label><input className="input-field" onChange={e=>setN(e.target.value)} /></div>
+                    <div className="form-group"><label className="input-label">Phone:</label><input type="tel" className="input-field" onChange={e=>setP(e.target.value)} /></div>
+                    <div className="form-group"><label className="input-label">Address:</label><input className="input-field" onChange={e=>setA(e.target.value)} /></div>
                     <div className="h-px bg-stone-100 my-4"></div>
-                    <div className="form-group"><label className="input-label">Service Type:</label><select className="input-field" onChange={e=>setS(e.target.value)}>{SERVICES.map(sv => <option key={sv} value={sv}>{sv}</option>)}</select></div>
-                    <div className="form-group"><label className="input-label">Schedule Date:</label><input type="datetime-local" className="input-field" onChange={e=>setD(e.target.value)} /></div>
-                    <div className="form-group"><label className="input-label">Estimate ($):</label><input type="number" className="input-field" onChange={e=>setPr(e.target.value)} placeholder="0.00" /></div>
-                    <button onClick={save} className="btn-primary">SAVE NEW CLIENT & JOB</button>
+                    <div className="form-group"><label className="input-label">Service:</label><select className="input-field" onChange={e=>setS(e.target.value)}>{SERVICES.map(sv => <option key={sv} value={sv}>{sv}</option>)}</select></div>
+                    <div className="form-group"><label className="input-label">Date/Time:</label><input type="datetime-local" className="input-field" onChange={e=>setD(e.target.value)} /></div>
+                    <div className="form-group"><label className="input-label">Price ($):</label><input type="number" className="input-field" onChange={e=>setPr(e.target.value)} /></div>
+                    <button onClick={save} className="btn-primary">SAVE ENTRY</button>
                 </div></div>
             );
         };
