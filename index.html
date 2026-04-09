@@ -16,9 +16,10 @@
         .sun-card { @apply bg-white rounded-3xl shadow-sm border border-stone-200 p-5 mb-4 active:scale-[0.98] transition-all; }
         .input-field { @apply w-full p-4 rounded-xl border-2 border-stone-200 bg-white text-lg mb-3 focus:border-[#3e5622] outline-none font-medium; }
         .btn-primary { @apply bg-[#1a2e05] text-white font-black py-4 px-6 rounded-2xl shadow-lg active:bg-black w-full text-center; }
-        .modal-overlay { @apply fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-end justify-center; }
-        .modal-content { @apply bg-white w-full max-w-md rounded-t-[3rem] p-8 pb-12 animate-in slide-in-from-bottom duration-300 max-h-[90vh] overflow-y-auto; }
+        .modal-overlay { @apply fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end justify-center; }
+        .modal-content { @apply bg-white w-full max-w-md rounded-t-[3rem] p-8 pb-12 animate-in slide-in-from-bottom duration-300 max-h-[90vh] overflow-y-auto shadow-2xl; }
         label { @apply text-[10px] font-black uppercase text-stone-400 ml-1 mb-1 block; }
+        .nav-active { @apply text-[#3e5622] scale-110; }
     </style>
 </head>
 <body>
@@ -55,6 +56,7 @@
             const [appointments, setAppointments] = useState([]);
             const [isAddingJob, setIsAddingJob] = useState(null);
             const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+            const [selectedJob, setSelectedJob] = useState(null);
             const [loading, setLoading] = useState(true);
 
             useEffect(() => {
@@ -73,101 +75,104 @@
                 }
             }, [user]);
 
-            if (loading) return <div className="p-10 text-center font-bold text-stone-400">Opening NPM App...</div>;
+            const sendSMS = (appt) => {
+                const cust = customers.find(c => c.id === appt.customerId);
+                const dateStr = new Date(appt.date).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+                const msg = `Hi ${appt.customerName}, NPM reminder: ${appt.service} on ${dateStr}. See you soon!`;
+                window.open(`sms:${cust?.phone || ''}?&body=${encodeURIComponent(msg)}`);
+                fb.updateDoc(fb.doc(fb.db, "appointments", appt.id), { reminderSent: true });
+            };
+
+            if (loading) return <div className="p-10 text-center font-bold text-stone-400">Loading NPM...</div>;
             if (!user) return <LoginScreen />;
 
             return (
                 <div className="max-w-md mx-auto min-h-screen pb-24">
-                    <div className="p-6 bg-[#1a2e05] text-white flex justify-between items-center rounded-b-[2.5rem] shadow-xl">
-                        <div><h1 className="text-2xl font-black italic">NPM App</h1><p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">Property Maintenance</p></div>
+                    <header className="p-6 bg-[#1a2e05] text-white flex justify-between items-center rounded-b-[2.5rem] shadow-xl">
+                        <div><h1 className="text-2xl font-black italic">NPM App</h1><p className="text-[10px] font-bold opacity-60 uppercase">Management Suite</p></div>
                         <button onClick={() => fb.signOut(fb.auth)} className="bg-white/10 px-3 py-1 rounded-full text-[10px] font-black uppercase">Exit</button>
-                    </div>
+                    </header>
 
                     <main className="p-4">
-                        {view === 'dashboard' && <Dashboard appointments={appointments} />}
-                        {view === 'customers' && <CustomersList customers={customers} onAddJob={setIsAddingJob} onAddCustomer={() => setIsAddingCustomer(true)} />}
-                        {view === 'appointments' && <AppointmentsList appointments={appointments} />}
-                        {view === 'reminders' && <RemindersView appointments={appointments} customers={customers} />}
+                        {view === 'dashboard' && <Dashboard appointments={appointments} onJobClick={setSelectedJob} />}
+                        {view === 'customers' && <CustomersList customers={customers} onAddJob={setIsAddingJob} onAddCustomer={() => setIsAddingCustomer(true)} onRemind={sendSMS} />}
+                        {view === 'appointments' && <AppointmentsList appointments={appointments} onJobClick={setSelectedJob} />}
+                        {view === 'reminders' && <RemindersView appointments={appointments} onSend={sendSMS} />}
                     </main>
 
-                    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 flex justify-around pb-10 pt-3 z-50 shadow-2xl">
+                    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 flex justify-around pb-10 pt-3 z-50">
                         <NavIcon active={view==='dashboard'} label="Home" icon="🏠" onClick={()=>setView('dashboard')} />
-                        <NavIcon active={view==='appointments'} label="Jobs" icon="📅" onClick={()=>setView('appointments')} />
+                        <NavIcon active={view==='appointments'} label="Schedule" icon="📅" onClick={()=>setView('appointments')} />
                         <NavIcon active={view==='customers'} label="Clients" icon="👥" onClick={()=>setView('customers')} />
                         <NavIcon active={view==='reminders'} label="Remind" icon="🔔" onClick={()=>setView('reminders')} />
                     </nav>
 
                     {isAddingJob && <JobModal customer={isAddingJob} onClose={()=>setIsAddingJob(null)} />}
                     {isAddingCustomer && <CustomerModal onClose={()=>setIsAddingCustomer(false)} />}
+                    {selectedJob && <JobDetailModal job={selectedJob} onClose={()=>setSelectedJob(null)} onSend={sendSMS} />}
                 </div>
             );
         };
 
         const NavIcon = ({ active, label, icon, onClick }) => (
-            <button onClick={onClick} className={`flex flex-col items-center w-full ${active ? 'text-[#3e5622]' : 'text-stone-300'}`}>
+            <button onClick={onClick} className={`flex flex-col items-center w-full transition-all ${active ? 'text-[#3e5622] scale-110' : 'text-stone-300'}`}>
                 <span className="text-xl mb-1">{icon}</span>
                 <span className="text-[9px] font-black uppercase tracking-widest">{label}</span>
             </button>
         );
 
-        const Dashboard = ({ appointments }) => {
+        const Dashboard = ({ appointments, onJobClick }) => {
             const today = new Date().toISOString().split('T')[0];
-            const jobsToday = appointments.filter(a => a.date && a.date.includes(today));
+            const jobsToday = appointments.filter(a => a.date?.includes(today) && a.status !== 'Completed');
             return (
                 <div className="animate-in fade-in">
-                    <div className="sun-card bg-[#3e5622] text-white border-none shadow-lg">
-                        <p className="font-bold opacity-70 uppercase text-[10px] tracking-widest text-center">Active Jobs</p>
-                        <h2 className="text-5xl font-black text-center">{jobsToday.length}</h2>
+                    <div className="sun-card bg-[#3e5622] text-white border-none shadow-lg text-center py-8">
+                        <p className="font-bold opacity-70 uppercase text-xs tracking-widest mb-2">Today's Jobs</p>
+                        <h2 className="text-6xl font-black">{jobsToday.length}</h2>
                     </div>
-                    <h3 className="font-black text-[#1a2e05] mt-6 mb-4 px-2 uppercase text-sm tracking-tighter italic">Today's Schedule</h3>
-                    {jobsToday.length === 0 ? <p className="text-stone-400 italic text-center py-10">All clear for today.</p> :
-                        jobsToday.map(j => <JobCard key={j.id} j={j} />)
+                    <h3 className="font-black text-[#1a2e05] mt-6 mb-4 px-2 uppercase text-sm italic tracking-tighter">Current Docket</h3>
+                    {jobsToday.length === 0 ? <p className="text-stone-400 italic text-center py-10">All clear for today!</p> :
+                        jobsToday.map(j => <JobRow key={j.id} j={j} onClick={() => onJobClick(j)} />)
                     }
                 </div>
             );
         };
 
-        const JobCard = ({ j }) => (
-            <div className="sun-card border-l-8 border-[#c5a059]">
-                <div className="flex justify-between items-start mb-2">
-                    <div>
-                        <div className="font-black text-xl leading-tight text-[#1a2e05]">{j.service}</div>
-                        <div className="text-[#3e5622] font-bold">{j.customerName}</div>
-                    </div>
-                    <div className="font-black text-lg text-stone-800">${j.price}</div>
+        const JobRow = ({ j, onClick }) => (
+            <div onClick={onClick} className="sun-card border-l-8 border-[#c5a059] flex justify-between items-center active:bg-stone-50">
+                <div>
+                    <div className="font-black text-lg leading-tight text-[#1a2e05]">{j.service}</div>
+                    <div className="text-stone-500 font-bold text-sm">{j.customerName}</div>
+                    <div className="text-[10px] text-stone-400 font-black mt-1 uppercase tracking-tighter truncate w-48">{j.address || 'No Address'}</div>
                 </div>
-                {j.address && (
-                    <button 
-                        onClick={() => window.open(`http://maps.apple.com/?q=${encodeURIComponent(j.address)}`)}
-                        className="flex items-center gap-2 text-blue-600 font-bold text-sm bg-blue-50 p-3 rounded-xl w-full mt-2"
-                    >
-                        📍 <span className="truncate">{j.address}</span>
-                    </button>
-                )}
-                <div className="flex gap-2 mt-4">
-                    <button onClick={() => fb.updateDoc(fb.doc(fb.db, "appointments", j.id), { status: 'Completed' })} className="flex-1 py-3 bg-stone-100 rounded-xl font-black text-[10px] uppercase">Mark Done</button>
+                <div className="text-right">
+                    <div className="font-black text-[#3e5622]">${j.price}</div>
+                    <div className="text-[9px] font-black text-stone-300 uppercase italic">Details ></div>
                 </div>
             </div>
         );
 
-        const CustomersList = ({ customers, onAddJob, onAddCustomer }) => {
+        const CustomersList = ({ customers, onAddJob, onAddCustomer, onRemind }) => {
             const [q, setQ] = useState('');
+            const deleteCust = async (id) => { if(confirm("Delete Client? All records will be lost.")) await fb.deleteDoc(fb.doc(fb.db, "customers", id)); };
             return (
                 <div className="animate-in fade-in">
-                    <div className="flex gap-2 mb-4">
-                        <input className="input-field mb-0" placeholder="Search Clients..." onChange={e=>setQ(e.target.value.toLowerCase())} />
-                        <button onClick={onAddCustomer} className="bg-[#c5a059] text-white px-6 rounded-xl font-black shadow-md text-2xl">+</button>
+                    <div className="flex gap-2 mb-6">
+                        <input className="input-field mb-0 shadow-sm" placeholder="Search Names..." onChange={e=>setQ(e.target.value.toLowerCase())} />
+                        <button onClick={onAddCustomer} className="bg-[#c5a059] text-white px-6 rounded-2xl font-black shadow-lg text-2xl">+</button>
                     </div>
                     {customers.filter(c => c.name.toLowerCase().includes(q)).map(c => (
-                        <div key={c.id} className="sun-card">
-                            <div className="flex justify-between items-center mb-4">
-                                <div><h4 className="font-black text-xl leading-tight">{c.name}</h4><p className="text-stone-400 font-bold">{c.phone}</p></div>
-                                <button onClick={()=>onAddJob(c)} className="bg-[#1a2e05] text-white text-[10px] font-black px-4 py-3 rounded-xl shadow-md uppercase">Add Job</button>
+                        <div key={c.id} className="sun-card relative overflow-hidden">
+                            <div className="flex justify-between items-start mb-4">
+                                <div><h4 className="font-black text-xl leading-tight text-[#1a2e05]">{c.name}</h4><p className="text-[#c5a059] font-bold text-sm">{c.phone}</p></div>
+                                <div className="flex gap-1">
+                                    <button onClick={()=>onAddJob(c)} className="bg-[#3e5622] text-white text-[9px] font-black px-3 py-2 rounded-lg uppercase">Add Job</button>
+                                    <button onClick={()=>deleteCust(c.id)} className="bg-red-50 text-red-400 p-2 rounded-lg">🗑️</button>
+                                </div>
                             </div>
                             <div className="flex gap-2">
                                 <a href={`tel:${c.phone}`} className="flex-1 bg-stone-100 py-3 rounded-xl text-center">📞</a>
-                                <a href={`sms:${c.phone}`} className="flex-1 bg-stone-100 py-3 rounded-xl text-center">💬</a>
-                                {c.address && <button onClick={() => window.open(`http://maps.apple.com/?q=${encodeURIComponent(c.address)}`)} className="flex-1 bg-blue-50 text-blue-600 py-3 rounded-xl text-center">📍</button>}
+                                <button onClick={() => window.open(`http://maps.apple.com/?q=${encodeURIComponent(c.address)}`)} className="flex-1 bg-stone-100 py-3 rounded-xl text-center">📍</button>
                             </div>
                         </div>
                     ))}
@@ -175,28 +180,66 @@
             );
         };
 
-        const AppointmentsList = ({ appointments }) => (
+        const AppointmentsList = ({ appointments, onJobClick }) => (
             <div className="animate-in fade-in">
-                {appointments.map(a => <JobCard key={a.id} j={a} />)}
+                <h3 className="font-black text-[#1a2e05] mb-4 uppercase text-sm">Full Schedule</h3>
+                {appointments.map(a => <JobRow key={a.id} j={a} onClick={() => onJobClick(a)} />)}
             </div>
         );
 
-        const RemindersView = ({ appointments, customers }) => {
-            const send = (a) => {
-                const c = customers.find(x => x.id === a.customerId);
-                const msg = `Hi ${a.customerName}, this is Nance Property Maintenance. Just a reminder for your ${a.service} scheduled for ${new Date(a.date).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}. See you then!`;
-                window.open(`sms:${c.phone}?&body=${encodeURIComponent(msg)}`);
-                fb.updateDoc(fb.doc(fb.db, "appointments", a.id), { reminderSent: true });
-            };
+        const RemindersView = ({ appointments, onSend }) => {
+            const pending = appointments.filter(a => !a.reminderSent && a.status !== 'Completed');
             return (
                 <div className="animate-in fade-in">
-                    {appointments.filter(a => !a.reminderSent && a.status !== 'Completed').map(a => (
-                        <div key={a.id} className="sun-card border-l-8 border-[#c5a059]">
-                            <p className="font-black text-stone-800 text-lg">{a.customerName}</p>
-                            <p className="text-xs font-bold text-stone-400 mb-4 uppercase">{a.service}</p>
-                            <button onClick={()=>send(a)} className="btn-primary">SEND SMS REMINDER</button>
+                    <h3 className="font-black text-[#1a2e05] mb-4 uppercase text-sm italic">Pending SMS Notifications</h3>
+                    {pending.length === 0 ? <p className="text-center text-stone-400 mt-10">No pending reminders.</p> :
+                        pending.map(a => (
+                            <div key={a.id} className="sun-card border-l-8 border-[#3e5622]">
+                                <div className="font-black text-stone-800 text-lg">{a.customerName}</div>
+                                <p className="text-xs font-bold text-stone-400 mb-4">{a.service} — {new Date(a.date).toLocaleDateString()}</p>
+                                <button onClick={()=>onSend(a)} className="btn-primary">SEND REMINDER</button>
+                            </div>
+                        ))
+                    }
+                </div>
+            );
+        };
+
+        const JobDetailModal = ({ job, onClose, onSend }) => {
+            const markDone = async () => { 
+                await fb.updateDoc(fb.doc(fb.db, "appointments", job.id), { status: 'Completed' });
+                onClose();
+            };
+            const deleteJob = async () => { if(confirm("Delete Job?")) { await fb.deleteDoc(fb.doc(fb.db, "appointments", job.id)); onClose(); } };
+            
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-content" onClick={e=>e.stopPropagation()}>
+                        <div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-8"></div>
+                        <div className="mb-8">
+                            <h2 className="text-3xl font-black text-[#1a2e05] leading-none mb-2">{job.service}</h2>
+                            <p className="text-xl font-bold text-[#c5a059]">{job.customerName}</p>
                         </div>
-                    ))}
+                        
+                        <div className="space-y-6 mb-10">
+                            <div>
+                                <label>Address</label>
+                                <button onClick={() => window.open(`http://maps.apple.com/?q=${encodeURIComponent(job.address)}`)} className="w-full text-left bg-blue-50 p-4 rounded-2xl text-blue-700 font-bold border border-blue-100">
+                                    📍 {job.address || 'No address provided'}
+                                </button>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="flex-1"><label>Date</label><div className="font-black text-lg">{new Date(job.date).toLocaleDateString()}</div></div>
+                                <div className="flex-1 text-right"><label>Estimate</label><div className="font-black text-2xl text-[#3e5622]">${job.price}</div></div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <button onClick={markDone} className="btn-primary py-5 text-xl">✅ MARK AS COMPLETE</button>
+                            <button onClick={() => onSend(job)} className="w-full py-4 bg-stone-100 text-stone-600 font-black rounded-2xl">🔔 SEND REMINDER</button>
+                            <button onClick={deleteJob} className="w-full py-3 text-red-400 font-bold text-sm">Delete Job Record</button>
+                        </div>
+                    </div>
                 </div>
             );
         };
@@ -216,17 +259,17 @@
             return (
                 <div className="modal-overlay" onClick={onClose}>
                     <div className="modal-content" onClick={e=>e.stopPropagation()}>
-                        <div className="w-12 h-1 bg-stone-200 rounded-full mx-auto mb-6"></div>
-                        <h3 className="text-2xl font-black mb-6 text-[#1a2e05]">Job for {customer.name}</h3>
-                        <label>Work Type</label>
+                        <div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-6"></div>
+                        <h3 className="text-2xl font-black mb-6 text-[#1a2e05]">New Job: {customer.name}</h3>
+                        <label>Service Type</label>
                         <select className="input-field" onChange={e=>setService(e.target.value)}>
                             {SERVICES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                         <label>Date & Time</label>
                         <input type="datetime-local" className="input-field" onChange={e=>setDate(e.target.value)} />
-                        <label>Estimate / Price ($)</label>
+                        <label>Estimate ($)</label>
                         <input type="number" inputMode="decimal" className="input-field" placeholder="0.00" onChange={e=>setPrice(e.target.value)} />
-                        <button onClick={save} className="btn-primary mt-4 py-5 text-lg shadow-xl">SAVE JOB</button>
+                        <button onClick={save} className="btn-primary mt-4 py-5 text-lg">CREATE JOB</button>
                     </div>
                 </div>
             );
@@ -237,22 +280,19 @@
             const [phone, setPhone] = useState('');
             const [address, setAddress] = useState('');
             const save = async () => {
-                if(!name || !phone) return alert("Name and Phone required");
+                if(!name || !phone) return alert("Missing Info");
                 await fb.addDoc(fb.collection(fb.db, "customers"), { name, phone, address });
                 onClose();
             };
             return (
                 <div className="modal-overlay" onClick={onClose}>
                     <div className="modal-content" onClick={e=>e.stopPropagation()}>
-                        <div className="w-12 h-1 bg-stone-200 rounded-full mx-auto mb-6"></div>
-                        <h3 className="text-2xl font-black mb-6 text-[#1a2e05]">New Client Profile</h3>
-                        <label>Full Name</label>
-                        <input className="input-field" placeholder="John Smith" onChange={e=>setName(e.target.value)} />
-                        <label>Phone Number</label>
-                        <input type="tel" inputMode="tel" className="input-field" placeholder="(555) 555-5555" onChange={e=>setPhone(e.target.value)} />
-                        <label>Service Address</label>
-                        <input className="input-field" placeholder="123 Main St, Mulberry FL" onChange={e=>setAddress(e.target.value)} />
-                        <button onClick={save} className="btn-primary mt-4 py-5 text-lg shadow-xl">SAVE CLIENT</button>
+                        <div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-6"></div>
+                        <h3 className="text-2xl font-black mb-6 text-[#1a2e05]">New Client Setup</h3>
+                        <label>Full Name</label><input className="input-field" placeholder="Client Name" onChange={e=>setName(e.target.value)} />
+                        <label>Phone Pad</label><input type="tel" inputMode="tel" className="input-field" placeholder="863-xxx-xxxx" onChange={e=>setPhone(e.target.value)} />
+                        <label>Job Address</label><input className="input-field" placeholder="Street, City, Zip" onChange={e=>setAddress(e.target.value)} />
+                        <button onClick={save} className="btn-primary mt-4 py-5 text-lg">SAVE PROFILE</button>
                     </div>
                 </div>
             );
@@ -262,14 +302,14 @@
             const [e, setE] = useState(''); const [p, setP] = useState('');
             const handleLogin = async () => {
                 try { await fb.signInWithEmailAndPassword(fb.auth, e, p); }
-                catch (error) { alert("Login failed."); }
+                catch (error) { alert("Check login info."); }
             };
             return (
-                <div className="p-10 flex flex-col justify-center min-h-screen">
-                    <div className="mb-10 text-center"><h1 className="text-6xl font-black text-[#1a2e05] italic">NPM</h1><p className="font-bold text-stone-400 uppercase tracking-widest text-xs">Prop Maintenance</p></div>
+                <div className="p-10 flex flex-col justify-center min-h-screen bg-white">
+                    <div className="mb-10 text-center"><h1 className="text-7xl font-black text-[#1a2e05] italic">NPM</h1><p className="font-bold text-stone-300 uppercase tracking-[0.3em] text-[10px] mt-2">Nance Maintenance</p></div>
                     <input className="input-field" placeholder="Email" onChange={x=>setE(x.target.value)} />
                     <input className="input-field" type="password" placeholder="Password" onChange={x=>setP(x.target.value)} />
-                    <button onClick={handleLogin} className="btn-primary mt-4">LOG IN</button>
+                    <button onClick={handleLogin} className="btn-primary mt-4 py-5 text-lg">LOG IN</button>
                 </div>
             );
         };
