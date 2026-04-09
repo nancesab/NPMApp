@@ -12,16 +12,51 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
         :root { --forest: #1a2e05; --grass: #3e5622; --dirt: #c5a059; }
-        body { background-color: #f8f8f8; font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 0; overflow-x: hidden; }
         
-        /* LOGIN FIX: Forces labels and boxes to stay in their lane */
-        .login-container { @apply p-6 flex flex-col justify-center min-h-screen bg-white max-w-sm mx-auto; }
-        .form-group { @apply mb-8 w-full; }
+        /* Forces the body to be exactly the height of the phone screen */
+        html, body { height: 100%; margin: 0; padding: 0; background-color: #ffffff; overflow: hidden; }
+        
+        /* Perfect centering for the login screen */
+        .login-wrapper { 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center;
+            padding: 2rem;
+            background: white;
+        }
+
+        .form-group { width: 100%; max-width: 320px; margin-bottom: 1.5rem; }
         .input-label { @apply text-[10px] font-black uppercase text-stone-400 mb-2 tracking-widest block; }
-        .input-field { @apply w-full p-4 rounded-xl border-2 border-stone-100 bg-stone-50 text-base focus:border-[#3e5622] outline-none font-bold block transition-all appearance-none; }
-        
-        .btn-primary { @apply bg-[#1a2e05] text-white font-black py-5 px-6 rounded-2xl shadow-lg active:scale-95 w-full text-lg text-center block mt-4 transition-transform; }
-        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-around; padding-top: 12px; padding-bottom: calc(20px + env(safe-area-inset-bottom)); z-index: 1000; }
+        .input-field { 
+            width: 100%; 
+            padding: 1.25rem; 
+            border-radius: 1rem; 
+            border: 2px solid #f1f1f1; 
+            background: #fafafa; 
+            font-size: 1rem;
+            font-weight: 700;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .input-field:focus { border-color: #3e5622; background: white; }
+
+        .btn-primary { 
+            background: #1a2e05; 
+            color: white; 
+            font-weight: 900; 
+            padding: 1.25rem; 
+            border-radius: 1rem; 
+            width: 100%; 
+            max-width: 320px;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 1rem;
+            box-shadow: 0 10px 20px rgba(26, 46, 5, 0.2);
+        }
+        .btn-primary:active { transform: scale(0.96); }
     </style>
 </head>
 <body>
@@ -31,6 +66,7 @@
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, onSnapshot, doc, updateDoc, deleteDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+        // Verified Config from your Screenshot
         const firebaseConfig = {
             apiKey: "AIzaSyAbPZO0PBMojki9axxrB5b30WqiVh4jgsE",
             authDomain: "npmapp-542dc.firebaseapp.com",
@@ -60,47 +96,37 @@
                 return () => unsub();
             }, []);
 
-            if (loading) return <div className="p-10 text-center font-black text-stone-300 mt-20 italic uppercase">NPM LOADING</div>;
+            if (loading) return <div className="flex items-center justify-center h-screen font-black text-stone-300 italic">NPM LOADING...</div>;
             
-            return !user ? <LoginScreen onLogin={setUser} /> : (
-                <div className="max-w-md mx-auto min-h-screen pb-40">
-                    <header className="p-6 pt-12 bg-[#1a2e05] text-white flex justify-between items-center rounded-b-[2rem]">
-                        <h1 className="text-xl font-black italic">NPM App</h1>
-                        <button onClick={() => fb.signOut(fb.auth)} className="text-[10px] font-bold opacity-50 uppercase">Logout</button>
-                    </header>
-                    <div className="p-6 text-center mt-20">
-                        <h2 className="text-2xl font-black text-stone-800">Welcome Back!</h2>
-                        <p className="text-stone-400 mt-2">Login Successful.</p>
-                    </div>
-                </div>
-            );
+            return !user ? <LoginScreen onLogin={setUser} /> : <Dashboard user={user} />;
         };
 
         const LoginScreen = ({ onLogin }) => {
             const [email, setEmail] = useState('');
             const [pass, setPass] = useState('');
-            const [err, setErr] = useState('');
+            const [error, setError] = useState('');
 
             const handleLogin = async () => {
-                setErr('');
+                setError('');
                 try {
-                    const res = await fb.signInWithEmailAndPassword(fb.auth, email.trim(), pass);
+                    // Added .toLowerCase() to email to prevent case-sensitivity errors
+                    const res = await fb.signInWithEmailAndPassword(fb.auth, email.trim().toLowerCase(), pass);
                     onLogin(res.user);
                 } catch (e) {
-                    setErr("Invalid login. Check Firebase Users list.");
+                    setError("Invalid Credentials. Check the user exists in Firebase Console.");
                 }
             };
 
             return (
-                <div className="login-container">
-                    <div className="mb-16 text-center">
-                        <h1 className="text-6xl font-black text-[#1a2e05] italic">NPM</h1>
-                        <p className="font-bold text-stone-300 uppercase tracking-widest text-[9px] mt-2">Property Maintenance</p>
+                <div className="login-wrapper">
+                    <div className="text-center mb-12">
+                        <h1 className="text-7xl font-black text-[#1a2e05] italic leading-none">NPM</h1>
+                        <p className="text-[10px] font-black text-stone-300 uppercase tracking-[0.3em] mt-2">Nance Property Maintenance</p>
                     </div>
                     
                     <div className="form-group">
-                        <label className="input-label">Email</label>
-                        <input className="input-field" type="email" placeholder="user@email.com" onChange={e=>setEmail(e.target.value)} />
+                        <label className="input-label">Email Address</label>
+                        <input className="input-field" type="email" placeholder="name@email.com" onChange={e=>setEmail(e.target.value)} />
                     </div>
 
                     <div className="form-group">
@@ -108,12 +134,20 @@
                         <input className="input-field" type="password" placeholder="••••••••" onChange={e=>setPass(e.target.value)} />
                     </div>
 
-                    {err && <p className="text-red-500 text-[10px] font-bold mb-4 text-center uppercase tracking-tighter">{err}</p>}
+                    {error && <p className="text-red-500 text-[10px] font-black mb-4 text-center uppercase max-w-[280px]">{error}</p>}
 
-                    <button onClick={handleLogin} className="btn-primary">LOG IN</button>
+                    <button onClick={handleLogin} className="btn-primary">Log In</button>
                 </div>
             );
         };
+
+        const Dashboard = ({ user }) => (
+            <div className="p-10 text-center h-screen flex flex-col justify-center">
+                <h2 className="text-3xl font-black text-[#1a2e05]">Access Granted</h2>
+                <p className="text-stone-400 mt-2 font-bold uppercase text-xs tracking-widest">{user.email}</p>
+                <button onClick={() => fb.signOut(fb.auth)} className="mt-10 text-red-400 font-black uppercase text-[10px]">Log Out</button>
+            </div>
+        );
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
