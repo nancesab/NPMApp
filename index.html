@@ -55,7 +55,7 @@
             const [customers, setCustomers] = useState([]);
             const [appointments, setAppointments] = useState([]);
             const [isAddingJob, setIsAddingJob] = useState(null);
-            const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+            const [isAddingCustomerAndJob, setIsAddingCustomerAndJob] = useState(false);
             const [selectedJob, setSelectedJob] = useState(null);
             const [loading, setLoading] = useState(true);
 
@@ -84,7 +84,7 @@
             };
 
             const closeAllModals = () => {
-                setIsAddingCustomer(false);
+                setIsAddingCustomerAndJob(false);
                 setIsAddingJob(null);
                 setSelectedJob(null);
             };
@@ -95,14 +95,14 @@
             return (
                 <div className="max-w-md mx-auto min-h-screen pb-24">
                     <header className="p-6 bg-[#1a2e05] text-white flex justify-between items-center rounded-b-[2.5rem] shadow-xl">
-                        <div><h1 className="text-2xl font-black italic">NPM App</h1><p className="text-[10px] font-bold opacity-60 uppercase">Nance Property Maintenance</p></div>
+                        <div><h1 className="text-2xl font-black italic text-stone-50">NPM App</h1><p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">Nance Property Maintenance</p></div>
                         <button onClick={() => fb.signOut(fb.auth)} className="bg-white/10 px-3 py-1 rounded-full text-[10px] font-black uppercase">Exit</button>
                     </header>
 
                     <main className="p-4">
                         {view === 'dashboard' && <Dashboard appointments={appointments} onJobClick={setSelectedJob} />}
-                        {view === 'customers' && <CustomersList customers={customers} onAddJob={setIsAddingJob} onAddCustomer={() => setIsAddingCustomer(true)} />}
-                        {view === 'appointments' && <AppointmentsList appointments={appointments} onJobClick={setSelectedJob} onAddBlankJob={() => setIsAddingCustomer(true)} />}
+                        {view === 'customers' && <CustomersList customers={customers} onAddJob={setIsAddingJob} onAddCustomer={() => setIsAddingCustomerAndJob(true)} />}
+                        {view === 'appointments' && <AppointmentsList appointments={appointments} onJobClick={setSelectedJob} onAddBlankJob={() => setIsAddingCustomerAndJob(true)} />}
                         {view === 'reminders' && <RemindersView appointments={appointments} onSend={sendSMS} />}
                     </main>
 
@@ -113,8 +113,8 @@
                         <NavIcon active={view==='reminders'} label="Remind" icon="🔔" onClick={()=>{closeAllModals(); setView('reminders');}} />
                     </nav>
 
-                    {isAddingJob && <JobModal customer={isAddingJob} onClose={()=>setIsAddingJob(null)} />}
-                    {isAddingCustomer && <CustomerModal onClose={(newC)=>{setIsAddingCustomer(false); if(newC) setIsAddingJob(newC);}} />}
+                    {isAddingJob && <ExistingClientJobModal customer={isAddingJob} onClose={()=>setIsAddingJob(null)} />}
+                    {isAddingCustomerAndJob && <NewClientAndJobModal onClose={()=>setIsAddingCustomerAndJob(false)} />}
                     {selectedJob && <JobDetailModal job={selectedJob} onClose={()=>setSelectedJob(null)} onSend={sendSMS} />}
                 </div>
             );
@@ -136,8 +136,8 @@
                         <p className="font-bold opacity-70 uppercase text-xs tracking-widest mb-2">Today's Jobs</p>
                         <h2 className="text-6xl font-black">{jobsToday.length}</h2>
                     </div>
-                    <h3 className="font-black text-[#1a2e05] mt-6 mb-4 px-2 uppercase text-sm italic">Daily Docket</h3>
-                    {jobsToday.length === 0 ? <p className="text-stone-400 italic text-center py-10">No active jobs right now.</p> :
+                    <h3 className="font-black text-[#1a2e05] mt-6 mb-4 px-2 uppercase text-sm italic tracking-tighter">Current Docket</h3>
+                    {jobsToday.length === 0 ? <p className="text-stone-400 italic text-center py-10">No jobs scheduled today.</p> :
                         jobsToday.map(j => <JobRow key={j.id} j={j} onClick={() => onJobClick(j)} />)
                     }
                 </div>
@@ -157,25 +157,25 @@
 
         const CustomersList = ({ customers, onAddJob, onAddCustomer }) => {
             const [q, setQ] = useState('');
-            const deleteCust = async (id) => { if(confirm("Delete Client Profile?")) await fb.deleteDoc(fb.doc(fb.db, "customers", id)); };
+            const deleteCust = async (id) => { if(confirm("Delete Client?")) await fb.deleteDoc(fb.doc(fb.db, "customers", id)); };
             return (
                 <div className="animate-in fade-in">
                     <div className="flex gap-2 mb-6">
-                        <input className="input-field mb-0 shadow-sm" placeholder="Search Names..." onChange={e=>setQ(e.target.value.toLowerCase())} />
+                        <input className="input-field mb-0 shadow-sm" placeholder="Search Clients..." onChange={e=>setQ(e.target.value.toLowerCase())} />
                         <button onClick={onAddCustomer} className="bg-[#c5a059] text-white px-6 rounded-2xl font-black shadow-lg text-2xl">+</button>
                     </div>
                     {customers.filter(c => c.name.toLowerCase().includes(q)).map(c => (
                         <div key={c.id} className="sun-card">
-                            <div className="flex justify-between items-start">
-                                <div><h4 className="font-black text-xl leading-tight text-[#1a2e05]">{c.name}</h4><p className="text-[#c5a059] font-bold text-sm mb-4">{c.phone}</p></div>
+                            <div className="flex justify-between items-start mb-4">
+                                <div><h4 className="font-black text-xl leading-tight text-[#1a2e05]">{c.name}</h4><p className="text-[#c5a059] font-bold text-sm">{c.phone}</p></div>
                                 <div className="flex gap-1">
                                     <button onClick={()=>onAddJob(c)} className="bg-[#3e5622] text-white text-[9px] font-black px-3 py-2 rounded-lg uppercase">Add Job</button>
                                     <button onClick={()=>deleteCust(c.id)} className="bg-red-50 text-red-400 p-2 rounded-lg">🗑️</button>
                                 </div>
                             </div>
                             <div className="flex gap-2">
-                                <a href={`tel:${c.phone}`} className="flex-1 bg-stone-100 py-3 rounded-xl text-center">📞 Call</a>
-                                <a href={`sms:${c.phone}`} className="flex-1 bg-stone-100 py-3 rounded-xl text-center">💬 Text</a>
+                                <a href={`tel:${c.phone}`} className="flex-1 bg-stone-100 py-3 rounded-xl text-center text-[10px] font-black uppercase">📞 Call</a>
+                                <a href={`sms:${c.phone}`} className="flex-1 bg-stone-100 py-3 rounded-xl text-center text-[10px] font-black uppercase">💬 Text</a>
                             </div>
                         </div>
                     ))}
@@ -228,15 +228,15 @@
                         </div>
                         <div className="space-y-6 mb-10">
                             <div>
-                                <label className="input-label">Location</label>
+                                <label className="input-label">Job Location</label>
                                 <button onClick={() => window.open(`http://maps.apple.com/?q=${encodeURIComponent(job.address)}`)} className="w-full text-left bg-blue-50 p-5 rounded-2xl text-blue-700 font-bold border border-blue-100 flex items-center justify-between">
-                                    <span className="truncate mr-2">{job.address || 'Add address in client profile'}</span>
+                                    <span className="truncate mr-2">{job.address || 'Address not set'}</span>
                                     <span>📍</span>
                                 </button>
                             </div>
                             <div className="flex gap-4">
-                                <div className="flex-1"><label className="input-label">Date</label><div className="font-black text-lg">{new Date(job.date).toLocaleDateString()}</div></div>
-                                <div className="flex-1 text-right"><label className="input-label">Estimate</label><div className="font-black text-2xl text-[#3e5622]">${job.price}</div></div>
+                                <div className="flex-1"><label className="input-label">Scheduled Date</label><div className="font-black text-lg">{new Date(job.date).toLocaleDateString()}</div></div>
+                                <div className="flex-1 text-right"><label className="input-label">Total Estimate</label><div className="font-black text-2xl text-[#3e5622]">${job.price}</div></div>
                             </div>
                         </div>
                         <button onClick={markDone} className="btn-primary py-5 mb-3">✅ MARK AS DONE</button>
@@ -247,10 +247,70 @@
             );
         };
 
-        const JobModal = ({ customer, onClose }) => {
+        // NEW: Combined Client + Job form for the Schedule tab
+        const NewClientAndJobModal = ({ onClose }) => {
+            const [name, setName] = useState('');
+            const [phone, setPhone] = useState('');
+            const [address, setAddress] = useState('');
             const [service, setService] = useState(SERVICES[0]);
             const [date, setDate] = useState('');
             const [price, setPrice] = useState('');
+
+            const saveEverything = async () => {
+                if(!name || !phone || !date || !price) return alert("Please fill all required fields (Name, Phone, Date, Price)");
+                
+                // 1. Create the Client
+                const custRef = await fb.addDoc(fb.collection(fb.db, "customers"), { name, phone, address });
+                
+                // 2. Create the Job
+                await fb.addDoc(fb.collection(fb.db, "appointments"), {
+                    customerId: custRef.id, customerName: name, address,
+                    service, date, price, status: 'Scheduled', reminderSent: false
+                });
+                
+                onClose();
+            };
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-content" onClick={e=>e.stopPropagation()}>
+                        <div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-6"></div>
+                        <h3 className="text-2xl font-black mb-8 text-[#1a2e05]">New Client & Job</h3>
+                        
+                        <label className="input-label text-[#c5a059] font-black">--- Client Details ---</label>
+                        <label className="input-label">Name:</label>
+                        <input className="input-field" placeholder="Client Name" onChange={e=>setName(e.target.value)} />
+                        
+                        <label className="input-label">Phone Number:</label>
+                        <input type="tel" inputMode="tel" className="input-field" placeholder="(863) 000-0000" onChange={e=>setPhone(e.target.value)} />
+                        
+                        <label className="input-label">Job Address:</label>
+                        <input className="input-field" placeholder="Street, City, Zip" onChange={e=>setAddress(e.target.value)} />
+                        
+                        <label className="input-label text-[#c5a059] font-black">--- Job Details ---</label>
+                        <label className="input-label">Service Type:</label>
+                        <select className="input-field" onChange={e=>setService(e.target.value)}>
+                            {SERVICES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        
+                        <label className="input-label">Schedule Date:</label>
+                        <input type="datetime-local" className="input-field" onChange={e=>setDate(e.target.value)} />
+                        
+                        <label className="input-label">Estimate ($):</label>
+                        <input type="number" inputMode="decimal" className="input-field" placeholder="0.00" onChange={e=>setPrice(e.target.value)} />
+                        
+                        <button onClick={saveEverything} className="btn-primary mt-4 shadow-2xl">SAVE NEW CLIENT & JOB</button>
+                    </div>
+                </div>
+            );
+        };
+
+        // For adding a job to someone who already exists in the list
+        const ExistingClientJobModal = ({ customer, onClose }) => {
+            const [service, setService] = useState(SERVICES[0]);
+            const [date, setDate] = useState('');
+            const [price, setPrice] = useState('');
+
             const save = async () => {
                 if(!date || !price) return alert("Price and Date required");
                 await fb.addDoc(fb.collection(fb.db, "appointments"), {
@@ -259,55 +319,25 @@
                 });
                 onClose();
             };
+
             return (
                 <div className="modal-overlay" onClick={onClose}>
                     <div className="modal-content" onClick={e=>e.stopPropagation()}>
                         <div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-6"></div>
-                        <h3 className="text-2xl font-black mb-8 text-[#1a2e05]">Job Details</h3>
-                        <p className="font-bold text-[#c5a059] mb-6 uppercase text-xs">For: {customer.name}</p>
+                        <h3 className="text-2xl font-black mb-4 text-[#1a2e05]">Job for {customer.name}</h3>
                         
-                        <label className="input-label">Service Type</label>
+                        <label className="input-label">Service Type:</label>
                         <select className="input-field" onChange={e=>setService(e.target.value)}>
                             {SERVICES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                         
-                        <label className="input-label">Schedule Date & Time</label>
+                        <label className="input-label">Schedule Date:</label>
                         <input type="datetime-local" className="input-field" onChange={e=>setDate(e.target.value)} />
                         
-                        <label className="input-label">Price / Estimate ($)</label>
+                        <label className="input-label">Estimate ($):</label>
                         <input type="number" inputMode="decimal" className="input-field" placeholder="0.00" onChange={e=>setPrice(e.target.value)} />
                         
-                        <button onClick={save} className="btn-primary mt-4 shadow-2xl">SCHEDULE JOB</button>
-                    </div>
-                </div>
-            );
-        };
-
-        const CustomerModal = ({ onClose }) => {
-            const [name, setName] = useState('');
-            const [phone, setPhone] = useState('');
-            const [address, setAddress] = useState('');
-            const save = async () => {
-                if(!name || !phone) return alert("Please enter a name and phone.");
-                const docRef = await fb.addDoc(fb.collection(fb.db, "customers"), { name, phone, address });
-                onClose({id: docRef.id, name, phone, address});
-            };
-            return (
-                <div className="modal-overlay" onClick={() => onClose(null)}>
-                    <div className="modal-content" onClick={e=>e.stopPropagation()}>
-                        <div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-6"></div>
-                        <h3 className="text-2xl font-black mb-10 text-[#1a2e05]">New Client Entry</h3>
-                        
-                        <label className="input-label">Full Name</label>
-                        <input className="input-field" placeholder="Client Name" onChange={e=>setName(e.target.value)} />
-                        
-                        <label className="input-label">Phone Number</label>
-                        <input type="tel" inputMode="tel" className="input-field" placeholder="863-xxx-xxxx" onChange={e=>setPhone(e.target.value)} />
-                        
-                        <label className="input-label">Job Address</label>
-                        <input className="input-field" placeholder="Street, City, Zip" onChange={e=>setAddress(e.target.value)} />
-                        
-                        <button onClick={save} className="btn-primary mt-6 shadow-2xl">SAVE & CONTINUE</button>
+                        <button onClick={save} className="btn-primary mt-4 shadow-2xl">SAVE JOB</button>
                     </div>
                 </div>
             );
