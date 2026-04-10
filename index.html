@@ -71,7 +71,8 @@
                 if (user) {
                     fb.onSnapshot(fb.query(fb.collection(fb.db, "customers"), fb.orderBy("name")), (s) => setCustomers(s.docs.map(d => ({id: d.id, ...d.data()}))));
                     fb.onSnapshot(fb.query(fb.collection(fb.db, "contractors"), fb.orderBy("name")), (s) => setContractors(s.docs.map(d => ({id: d.id, ...d.data()}))));
-                    fb.onSnapshot(fb.query(fb.collection(fb.db, "appointments"), fb.where("status", "==", "Scheduled")), (s) => setAppointments(s.docs.map(d => ({id: d.id, ...d.data()}))));
+                    // Listen to all appointments to calculate totals
+                    fb.onSnapshot(fb.collection(fb.db, "appointments"), (s) => setAppointments(s.docs.map(d => ({id: d.id, ...d.data()}))));
                 }
             }, [user]);
 
@@ -142,22 +143,43 @@
 
         const Dashboard = ({ appointments, onJobClick }) => {
             const today = new Date();
-            const tomorrow = new Date();
-            tomorrow.setDate(today.getDate() + 1);
+            const lastWeek = new Date();
+            lastWeek.setDate(today.getDate() - 7);
+
             const getDS = (d) => {
                 const year = d.getFullYear();
                 const month = String(d.getMonth() + 1).padStart(2, '0');
                 const day = String(d.getDate()).padStart(2, '0');
                 return `${year}-${month}-${day}`;
             };
+
             const tStr = getDS(today);
+            const tomorrow = new Date(); tomorrow.setDate(today.getDate() + 1);
             const mStr = getDS(tomorrow);
-            const todayJobs = appointments.filter(a => a.date && a.date.includes(tStr));
-            const tomorrowJobs = appointments.filter(a => a.date && a.date.includes(mStr));
+            
+            // Weekly Total: Completed jobs in the last 7 days
+            const completedLastWeek = appointments.filter(a => {
+                if (!a.date || a.status !== 'Completed') return false;
+                const jobDate = new Date(a.date);
+                return jobDate >= lastWeek && jobDate <= today;
+            });
+            const weeklyTotal = completedLastWeek.reduce((sum, job) => sum + Number(job.price || 0), 0);
+
+            const activeJobs = appointments.filter(a => a.status === 'Scheduled');
+            const todayJobs = activeJobs.filter(a => a.date && a.date.includes(tStr));
+            const tomorrowJobs = activeJobs.filter(a => a.date && a.date.includes(mStr));
+
             return (
                 <div className="animate-in fade-in">
+                    <div className="bg-[#3e5622] rounded-[2rem] p-6 mb-8 text-white shadow-inner">
+                        <label className="text-[10px] font-black uppercase opacity-60 tracking-widest block mb-1">Weekly Total (Last 7 Days)</label>
+                        <div className="text-4xl font-black tracking-tighter">${weeklyTotal.toLocaleString()}</div>
+                        <div className="text-[10px] font-bold opacity-40 uppercase mt-2">{completedLastWeek.length} Jobs Completed</div>
+                    </div>
+
                     <h3 className="font-black text-[#1a2e05] mt-2 mb-4 px-2 uppercase text-xs tracking-widest italic">Today's Jobs</h3>
                     {todayJobs.length === 0 ? <p className="px-2 mb-8 text-stone-300 italic text-sm">Nothing for today.</p> : todayJobs.map(j => <JobCard key={j.id} j={j} onClick={()=>onJobClick(j)} />)}
+                    
                     <h3 className="font-black text-[#1a2e05] mt-8 mb-4 px-2 uppercase text-xs tracking-widest italic">Tomorrow's Jobs</h3>
                     {tomorrowJobs.length === 0 ? <p className="px-2 text-stone-300 italic text-sm">Nothing for tomorrow.</p> : tomorrowJobs.map(j => <JobCard key={j.id} j={j} onClick={()=>onJobClick(j)} />)}
                 </div>
@@ -165,7 +187,6 @@
         };
 
         const JobCard = ({ j, onClick }) => {
-            // Logic to pull client name if no contractor is selected
             const subLabel = (!j.contractorName || j.contractorName === "None") ? (j.customerName || "Unassigned") : j.contractorName;
             return (
                 <div onClick={onClick} className="sun-card border-l-8 border-[#c5a059] flex justify-between items-center">
@@ -178,12 +199,15 @@
             );
         };
 
-        const AppointmentsList = ({ appointments, onJobClick }) => (
-            <div className="animate-in fade-in">
-                <h3 className="font-black text-[#1a2e05] uppercase text-xs tracking-widest mb-6 px-2 italic">Full Schedule</h3>
-                {appointments.length === 0 ? <p className="px-2 text-stone-300 italic">No scheduled jobs.</p> : appointments.map(j => <JobCard key={j.id} j={j} onClick={() => onJobClick(j)} />)}
-            </div>
-        );
+        const AppointmentsList = ({ appointments, onJobClick }) => {
+            const scheduled = appointments.filter(a => a.status === 'Scheduled');
+            return (
+                <div className="animate-in fade-in">
+                    <h3 className="font-black text-[#1a2e05] uppercase text-xs tracking-widest mb-6 px-2 italic">Full Schedule</h3>
+                    {scheduled.length === 0 ? <p className="px-2 text-stone-300 italic">No scheduled jobs.</p> : scheduled.map(j => <JobCard key={j.id} j={j} onClick={() => onJobClick(j)} />)}
+                </div>
+            );
+        };
 
         const PeopleList = ({ customers, contractors, onEdit }) => {
             const [tab, setTab] = useState('clients');
@@ -215,7 +239,7 @@
         };
 
         const RemindersView = ({ appointments, customers }) => {
-            const pending = appointments.filter(a => !a.reminderSent);
+            const pending = appointments.filter(a => a.status === 'Scheduled' && !a.reminderSent);
             const sendSMS = (appt) => {
                 const cust = customers.find(c => c.name === appt.customerName);
                 if(!cust) return alert("Contact not found.");
@@ -243,7 +267,7 @@
             const handleSave = async () => {
                 if(!form.date) return alert("Date is required.");
                 try {
-                    const data = { ...form, price: Number(form.price), status: 'Scheduled', reminderSent: job ? form.reminderSent : false };
+                    const data = { ...form, price: Number(form.price), status: job?.status || 'Scheduled', reminderSent: job ? form.reminderSent : false };
                     if (job) await fb.updateDoc(fb.doc(fb.db, "appointments", job.id), data);
                     else await fb.addDoc(fb.collection(fb.db, "appointments"), data);
                     onClose();
@@ -304,7 +328,7 @@
                         <p className="font-bold text-stone-800">${Number(job.price || 0).toLocaleString()}</p>
                     </div>
                     <button onClick={() => window.open(`http://maps.apple.com/?q=${encodeURIComponent(job.address)}`)} className="w-full text-left bg-blue-50 p-5 rounded-2xl text-blue-700 font-bold border border-blue-100 flex items-center justify-between mb-4">Open Maps 📍</button>
-                    <button onClick={markDone} className="btn-primary mb-3">✅ MARK AS DONE</button>
+                    {job.status === 'Scheduled' && <button onClick={markDone} className="btn-primary mb-3">✅ MARK AS DONE</button>}
                     <button onClick={deleteJob} className="w-full py-2 text-red-300 font-bold text-[10px] uppercase tracking-widest text-center">Delete Record</button>
                 </div></div>
             );
