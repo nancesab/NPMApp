@@ -13,10 +13,8 @@
     <style>
         :root { --forest: #1a2e05; --grass: #3e5622; --dirt: #c5a059; }
         body { background-color: #f8f8f8; font-family: -apple-system, system-ui, sans-serif; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
-        .form-group { width: 100%; max-width: 320px; margin-bottom: 1.25rem; @apply flex flex-col; }
         .input-label { @apply text-[10px] font-black uppercase text-stone-400 mb-1.5 tracking-widest block; }
-        .input-field { width: 100%; padding: 1rem; border-radius: 1rem; border: 2px solid #f1f1f1; background: #fafafa; font-size: 1rem; font-weight: 700; outline: none; transition: all 0.2s; }
-        .input-field:focus { border-color: #3e5622; background: white; }
+        .input-field { width: 100%; padding: 1rem; border-radius: 1rem; border: 2px solid #f1f1f1; background: #fafafa; font-size: 1rem; font-weight: 700; outline: none; }
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-around; padding-top: 12px; padding-bottom: calc(20px + env(safe-area-inset-bottom)); z-index: 1000; }
         .floating-add-bar { position: fixed; bottom: calc(100px + env(safe-area-inset-bottom)); left: 20px; right: 20px; z-index: 900; @apply bg-[#c5a059] text-white py-5 rounded-2xl shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-transform font-black uppercase tracking-widest; }
         .sun-card { @apply bg-white rounded-3xl shadow-sm border border-stone-200 p-5 mb-4 active:scale-[0.98] transition-all cursor-pointer; }
@@ -31,7 +29,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, onSnapshot, doc, updateDoc, deleteDoc, orderBy, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDKBNh28LkDEz0nyY6cfl6IiOHyzNlBd0U",
@@ -45,9 +42,8 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const storage = getStorage(app);
         setPersistence(auth, browserLocalPersistence);
-        window.NPM_FB = { auth, db, storage, addDoc, collection, query, onSnapshot, doc, updateDoc, deleteDoc, signInWithEmailAndPassword, signOut, onAuthStateChanged, orderBy, where, ref, uploadBytes, getDownloadURL };
+        window.NPM_FB = { auth, db, addDoc, collection, query, onSnapshot, doc, updateDoc, deleteDoc, signInWithEmailAndPassword, signOut, onAuthStateChanged, orderBy, where };
     </script>
 
     <script type="text/babel">
@@ -72,16 +68,9 @@
 
             useEffect(() => {
                 if (user) {
-                    const unsubCust = fb.onSnapshot(fb.query(fb.collection(fb.db, "customers"), fb.orderBy("name")), (s) => 
-                        setCustomers(s.docs.map(d => ({id: d.id, ...d.data()})))
-                    );
-                    const unsubCont = fb.onSnapshot(fb.query(fb.collection(fb.db, "contractors"), fb.orderBy("name")), (s) => 
-                        setContractors(s.docs.map(d => ({id: d.id, ...d.data()})))
-                    );
-                    const unsubAppt = fb.onSnapshot(fb.query(fb.collection(fb.db, "appointments"), fb.where("status", "==", "Scheduled"), fb.orderBy("date")), (s) => 
-                        setAppointments(s.docs.map(d => ({id: d.id, ...d.data()})))
-                    );
-                    return () => { unsubCust(); unsubCont(); unsubAppt(); };
+                    fb.onSnapshot(fb.query(fb.collection(fb.db, "customers"), fb.orderBy("name")), (s) => setCustomers(s.docs.map(d => ({id: d.id, ...d.data()}))));
+                    fb.onSnapshot(fb.query(fb.collection(fb.db, "contractors"), fb.orderBy("name")), (s) => setContractors(s.docs.map(d => ({id: d.id, ...d.data()}))));
+                    fb.onSnapshot(fb.query(fb.collection(fb.db, "appointments"), fb.where("status", "==", "Scheduled"), fb.orderBy("date")), (s) => setAppointments(s.docs.map(d => ({id: d.id, ...d.data()}))));
                 }
             }, [user]);
 
@@ -92,7 +81,7 @@
                 <div className="max-w-md mx-auto min-h-screen pb-48">
                     <header className="p-6 pt-12 bg-[#1a2e05] text-white flex justify-between items-center rounded-b-[2.5rem] shadow-xl">
                         <div><h1 className="text-2xl font-black italic">NPM App</h1><p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">Nance Property Maintenance</p></div>
-                        <button onClick={() => fb.signOut(fb.auth)} className="bg-white/10 px-4 py-2 rounded-full text-[10px] font-black uppercase">Exit</button>
+                        <button onClick={() => fb.signOut(fb.auth)} className="bg-white/10 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest">Exit</button>
                     </header>
 
                     <main className="p-4">
@@ -128,15 +117,15 @@
             return (
                 <div className="flex flex-col h-screen items-center justify-center p-8 bg-white">
                     <h1 className="text-7xl font-black text-[#1a2e05] italic mb-12">NPM</h1>
-                    <div className="form-group"><label className="input-label">Email</label><input className="input-field" type="email" onChange={e=>setEmail(e.target.value)} /></div>
-                    <div className="form-group"><label className="input-label">Password</label><input className="input-field" type="password" onChange={e=>setPass(e.target.value)} /></div>
+                    <div className="w-full max-w-xs mb-6"><label className="input-label">Email</label><input className="input-field" type="email" onChange={e=>setEmail(e.target.value)} /></div>
+                    <div className="w-full max-w-xs mb-6"><label className="input-label">Password</label><input className="input-field" type="password" onChange={e=>setPass(e.target.value)} /></div>
                     <button onClick={handleLogin} className="btn-primary">Log In</button>
                 </div>
             );
         };
 
         const NavIcon = ({ active, label, icon, onClick }) => (
-            <button onClick={onClick} className={`flex flex-col items-center flex-1 transition-all ${active ? 'text-[#3e5622] font-black' : 'text-stone-300'}`}>
+            <button onClick={onClick} className={`flex flex-col items-center flex-1 ${active ? 'text-[#3e5622] font-black' : 'text-stone-300'}`}>
                 <span className="text-2xl mb-1">{icon}</span>
                 <span className="text-[10px] uppercase font-bold tracking-tighter">{label}</span>
             </button>
@@ -166,7 +155,7 @@
         const AppointmentsList = ({ appointments, onJobClick }) => (
             <div className="animate-in fade-in">
                 <h3 className="font-black text-[#1a2e05] uppercase text-xs tracking-widest mb-6 px-2 italic">Active Schedule</h3>
-                {appointments.length === 0 ? <p className="text-stone-300 italic px-2">Schedule is empty.</p> : appointments.map(j => <JobCard key={j.id} j={j} onClick={() => onJobClick(j)} />)}
+                {appointments.map(j => <JobCard key={j.id} j={j} onClick={() => onJobClick(j)} />)}
             </div>
         );
 
@@ -174,15 +163,11 @@
             const [tab, setTab] = useState('clients');
             const [name, setName] = useState('');
             const [phone, setPhone] = useState('');
-
             const addPerson = async () => {
                 if(!name) return;
-                try {
-                    await fb.addDoc(fb.collection(fb.db, tab === 'clients' ? "customers" : "contractors"), { name, phone });
-                    setName(''); setPhone('');
-                } catch (e) { alert("Error adding person: " + e.message); }
+                await fb.addDoc(fb.collection(fb.db, tab === 'clients' ? "customers" : "contractors"), { name, phone });
+                setName(''); setPhone('');
             };
-
             return (
                 <div className="animate-in fade-in">
                     <div className="flex bg-stone-100 p-1 rounded-2xl mb-6">
@@ -213,12 +198,12 @@
                 fb.updateDoc(fb.doc(fb.db, "appointments", appt.id), { reminderSent: true });
             };
             return (
-                <div className="animate-in fade-in p-2">
-                    <h3 className="font-black text-[#1a2e05] mb-6 uppercase text-xs tracking-widest italic">Pending Reminders</h3>
+                <div className="animate-in fade-in">
+                    <h3 className="font-black text-[#1a2e05] mb-6 px-2 uppercase text-xs tracking-widest italic">Pending Reminders</h3>
                     {pending.map(a => (
                         <div key={a.id} className="sun-card border-l-8 border-[#3e5622]">
                             <div className="font-black text-[#1a2e05] text-lg">{a.customerName || 'Unassigned'}</div>
-                            <p className="text-xs font-bold text-stone-400 mb-6 uppercase">{a.service}</p>
+                            <p className="text-xs font-bold text-stone-400 mb-6 uppercase tracking-widest">{a.service}</p>
                             <button onClick={() => sendSMS(a)} className="btn-primary py-4 text-sm uppercase">Send Text</button>
                         </div>
                     ))}
@@ -234,70 +219,49 @@
             const [desc, setDesc] = useState('');
             const [price, setPrice] = useState('');
             const [custName, setCustName] = useState('');
-            const [image, setImage] = useState(null);
             const [saving, setSaving] = useState(false);
 
             const handleSave = async () => {
                 if(!date) return alert("Date is required.");
                 setSaving(true);
                 try {
-                    let imgUrl = "";
-                    if(image) {
-                        const storageRef = fb.ref(fb.storage, `jobs/${Date.now()}_${image.name}`);
-                        const snapshot = await fb.uploadBytes(storageRef, image);
-                        imgUrl = await fb.getDownloadURL(snapshot.ref);
-                    }
                     await fb.addDoc(fb.collection(fb.db, "appointments"), {
-                        customerName: custName, contractorName: contName, service, address, date, description: desc, price, imageUrl: imgUrl, status: 'Scheduled', reminderSent: false
+                        customerName: custName, contractorName: contName, service, address, date, description: desc, price, status: 'Scheduled', reminderSent: false
                     });
                     onClose();
-                } catch (e) { 
-                    alert("FAILED TO SAVE: " + e.message); 
-                }
+                } catch (e) { alert("Error: " + e.message); }
                 setSaving(false);
             };
 
             return (
                 <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}><div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-6"></div>
                     <h3 className="text-2xl font-black mb-6 text-[#1a2e05]">New Job</h3>
-                    <div className="form-group"><label className="input-label">Contractor</label><select className="input-field" onChange={e=>setContName(e.target.value)} value={contName}>{contractors.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
-                    <div className="form-group"><label className="input-label">Service</label><select className="input-field" onChange={e=>setService(e.target.value)}>{SERVICES.map(sv => <option key={sv} value={sv}>{sv}</option>)}</select></div>
-                    <div className="form-group"><label className="input-label">Address</label><input className="input-field" onChange={e=>setAddress(e.target.value)} /></div>
-                    <div className="form-group"><label className="input-label">Date/Time</label><input type="datetime-local" className="input-field" onChange={e=>setDate(e.target.value)} /></div>
-                    <div className="form-group"><label className="input-label">Description</label><textarea className="input-field h-24" onChange={e=>setDesc(e.target.value)} /></div>
-                    <div className="form-group"><label className="input-label">Estimate ($)</label><input type="number" className="input-field" onChange={e=>setPrice(e.target.value)} /></div>
-                    <div className="form-group"><label className="input-label">Customer Name</label><input className="input-field" onChange={e=>setCustName(e.target.value)} /></div>
-                    <div className="form-group"><label className="input-label">Photo</label><input type="file" accept="image/*" onChange={e=>setImage(e.target.files[0])} className="text-xs" /></div>
+                    <div className="mb-4"><label className="input-label">Contractor</label><select className="input-field" onChange={e=>setContName(e.target.value)} value={contName}>{contractors.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
+                    <div className="mb-4"><label className="input-label">Service</label><select className="input-field" onChange={e=>setService(e.target.value)}>{SERVICES.map(sv => <option key={sv} value={sv}>{sv}</option>)}</select></div>
+                    <div className="mb-4"><label className="input-label">Address</label><input className="input-field" onChange={e=>setAddress(e.target.value)} /></div>
+                    <div className="mb-4"><label className="input-label">Date/Time</label><input type="datetime-local" className="input-field" onChange={e=>setDate(e.target.value)} /></div>
+                    <div className="mb-4"><label className="input-label">Description</label><textarea className="input-field h-24" onChange={e=>setDesc(e.target.value)} /></div>
+                    <div className="mb-4"><label className="input-label">Estimate ($)</label><input type="number" className="input-field" onChange={e=>setPrice(e.target.value)} /></div>
+                    <div className="mb-4"><label className="input-label">Customer Name</label><input className="input-field" placeholder="Optional" onChange={e=>setCustName(e.target.value)} /></div>
                     <button onClick={handleSave} disabled={saving} className="btn-primary">{saving ? "SAVING..." : "SAVE JOB"}</button>
                 </div></div>
             );
         };
 
         const JobDetailModal = ({ job, onClose }) => {
-            const markDone = async () => { 
-                try {
-                    await fb.updateDoc(fb.doc(fb.db, "appointments", job.id), { status: 'Completed' }); 
-                    onClose(); 
-                } catch (e) { alert("Error: " + e.message); }
-            };
-            const deleteJob = async () => {
-                if(confirm("Permanently delete this record?")) {
-                    await fb.deleteDoc(fb.doc(fb.db, "appointments", job.id)); 
-                    onClose();
-                }
-            };
+            const markDone = async () => { await fb.updateDoc(fb.doc(fb.db, "appointments", job.id), { status: 'Completed' }); onClose(); };
+            const deleteJob = async () => { if(confirm("Delete this record?")) { await fb.deleteDoc(fb.doc(fb.db, "appointments", job.id)); onClose(); } };
             return (
                 <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}><div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-8"></div>
                     <h2 className="text-3xl font-black text-[#1a2e05] mb-1">{job.service}</h2>
-                    <p className="text-xl font-bold text-[#c5a059] mb-4">{job.customerName || 'Unassigned'}</p>
+                    <p className="text-xl font-bold text-[#c5a059] mb-6">{job.customerName || 'Unassigned'}</p>
                     <div className="bg-stone-50 p-4 rounded-xl mb-6 border border-stone-100">
                         <p className="text-[10px] font-black uppercase text-stone-400 mb-1">Contractor</p>
-                        <p className="font-bold text-[#3e5622]">{job.contractorName || 'Not Assigned'}</p>
+                        <p className="font-bold text-[#3e5622]">{job.contractorName || 'None'}</p>
                         <p className="text-[10px] font-black uppercase text-stone-400 mt-4 mb-1">Description</p>
-                        <p className="text-sm text-stone-600 leading-relaxed">{job.description || "No description provided."}</p>
+                        <p className="text-sm text-stone-600 leading-relaxed">{job.description || "None"}</p>
                     </div>
-                    {job.imageUrl && <img src={job.imageUrl} className="w-full h-48 object-cover rounded-2xl mb-6 shadow-sm border border-stone-100" />}
-                    <button onClick={() => window.open(`http://maps.apple.com/?q=${encodeURIComponent(job.address)}`)} className="w-full text-left bg-blue-50 p-5 rounded-2xl text-blue-700 font-bold border border-blue-100 flex items-center justify-between mb-4 shadow-sm">Open Maps 📍</button>
+                    <button onClick={() => window.open(`http://maps.apple.com/?q=${encodeURIComponent(job.address)}`)} className="w-full text-left bg-blue-50 p-5 rounded-2xl text-blue-700 font-bold border border-blue-100 flex items-center justify-between mb-4">Open Maps 📍</button>
                     <button onClick={markDone} className="btn-primary mb-3">✅ MARK AS DONE</button>
                     <button onClick={deleteJob} className="w-full py-2 text-red-300 font-bold text-[10px] uppercase tracking-widest">Delete Record</button>
                 </div></div>
