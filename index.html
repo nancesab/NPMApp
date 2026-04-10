@@ -58,6 +58,7 @@
             const [contractors, setContractors] = useState([]);
             const [appointments, setAppointments] = useState([]);
             const [selectedJob, setSelectedJob] = useState(null);
+            const [editEntity, setEditEntity] = useState(null);
             const [isAddingJob, setIsAddingJob] = useState(false);
             const [loading, setLoading] = useState(true);
 
@@ -74,10 +75,10 @@
                 }
             }, [user]);
 
-            // Fix: Clearing modals when changing views
             const changeTab = (tabName) => {
                 setSelectedJob(null);
                 setIsAddingJob(false);
+                setEditEntity(null);
                 setView(tabName);
             };
 
@@ -94,7 +95,7 @@
                     <main className="p-4">
                         {view === 'dashboard' && <Dashboard appointments={appointments} onJobClick={setSelectedJob} />}
                         {view === 'appointments' && <AppointmentsList appointments={appointments} onJobClick={setSelectedJob} />}
-                        {view === 'customers' && <PeopleList customers={customers} contractors={contractors} />}
+                        {view === 'customers' && <PeopleList customers={customers} contractors={contractors} onEdit={setEditEntity} />}
                         {view === 'reminders' && <RemindersView appointments={appointments} customers={customers} />}
                     </main>
 
@@ -107,8 +108,9 @@
                         <NavIcon active={view==='reminders'} label="Remind" icon="🔔" onClick={()=>changeTab('reminders')} />
                     </div>
 
-                    {isAddingJob && <NewJobModal contractors={contractors} onClose={()=>setIsAddingJob(false)} />}
-                    {selectedJob && <JobDetailModal job={selectedJob} onClose={()=>setSelectedJob(null)} />}
+                    {isAddingJob && <JobModal contractors={contractors} onClose={()=>setIsAddingJob(false)} />}
+                    {selectedJob && <JobDetailModal job={selectedJob} contractors={contractors} onClose={()=>setSelectedJob(null)} onEdit={setSelectedJob} />}
+                    {editEntity && <EditPersonModal entity={editEntity} onClose={()=>setEditEntity(null)} />}
                 </div>
             );
         };
@@ -162,15 +164,18 @@
             );
         };
 
-        const JobCard = ({ j, onClick }) => (
-            <div onClick={onClick} className="sun-card border-l-8 border-[#c5a059] flex justify-between items-center">
-                <div className="overflow-hidden">
-                    <div className="font-black text-lg text-[#1a2e05] truncate">{j.service}</div>
-                    <div className="text-stone-500 font-bold text-sm truncate">{j.customerName || 'Unassigned'}</div>
+        const JobCard = ({ j, onClick }) => {
+            const subLabel = (!j.contractorName || j.contractorName === "None") ? (j.customerName || "Unassigned") : j.contractorName;
+            return (
+                <div onClick={onClick} className="sun-card border-l-8 border-[#c5a059] flex justify-between items-center">
+                    <div className="overflow-hidden">
+                        <div className="font-black text-lg text-[#1a2e05] truncate">{j.service}</div>
+                        <div className="text-stone-500 font-bold text-xs uppercase tracking-wide truncate">{subLabel}</div>
+                    </div>
+                    <div className="font-black text-[#3e5622] ml-2 font-mono">${Number(j.price).toLocaleString()}</div>
                 </div>
-                <div className="font-black text-[#3e5622] ml-2 font-mono">${j.price || 0}</div>
-            </div>
-        );
+            );
+        }
 
         const AppointmentsList = ({ appointments, onJobClick }) => (
             <div className="animate-in fade-in">
@@ -179,7 +184,7 @@
             </div>
         );
 
-        const PeopleList = ({ customers, contractors }) => {
+        const PeopleList = ({ customers, contractors, onEdit }) => {
             const [tab, setTab] = useState('clients');
             const [name, setName] = useState(''); const [phone, setPhone] = useState('');
             const addPerson = async () => {
@@ -199,9 +204,9 @@
                         <button onClick={addPerson} className="w-full py-3 bg-[#3e5622] text-white font-black rounded-xl text-xs uppercase">Add {tab === 'clients' ? 'Client' : 'Contractor'}</button>
                     </div>
                     {(tab === 'clients' ? customers : contractors).map(p => (
-                        <div key={p.id} className="sun-card flex justify-between items-center">
+                        <div key={p.id} onClick={() => onEdit({...p, type: tab})} className="sun-card flex justify-between items-center">
                             <div><h4 className="font-black text-lg text-[#1a2e05]">{p.name}</h4><p className="text-[#c5a059] font-bold text-xs">{p.phone}</p></div>
-                            <button onClick={async() => {if(confirm("Delete?")) await fb.deleteDoc(fb.doc(fb.db, tab === 'clients' ? "customers" : "contractors", p.id))}} className="text-red-300">🗑️</button>
+                            <div className="text-stone-200">✎</div>
                         </div>
                     ))}
                 </div>
@@ -212,18 +217,18 @@
             const pending = appointments.filter(a => !a.reminderSent);
             const sendSMS = (appt) => {
                 const cust = customers.find(c => c.name === appt.customerName);
-                // Fix: Owner tone and Full Company Name
+                if(!cust) return alert("No client contact found for this job.");
                 const datePretty = appt.date ? new Date(appt.date).toLocaleDateString() : 'scheduled date';
                 const msg = `Hi ${appt.customerName}, this is Nance Property Maintenance. Just a friendly reminder for your ${appt.service} scheduled for ${datePretty}. See you soon!`;
-                window.open(`sms:${cust?.phone || ''}?&body=${encodeURIComponent(msg)}`);
+                window.open(`sms:${cust.phone}?&body=${encodeURIComponent(msg)}`);
                 fb.updateDoc(fb.doc(fb.db, "appointments", appt.id), { reminderSent: true });
             };
             return (
                 <div className="animate-in fade-in">
-                    <h3 className="font-black text-[#1a2e05] mb-6 px-2 uppercase text-xs tracking-widest italic">Pending Reminders</h3>
-                    {pending.length === 0 ? <p className="px-2 text-stone-300 italic">No pending reminders.</p> : pending.map(a => (
+                    <h3 className="font-black text-[#1a2e05] mb-6 px-2 uppercase text-xs tracking-widest italic">Pending Client Reminders</h3>
+                    {pending.length === 0 ? <p className="px-2 text-stone-300 italic">No pending client reminders.</p> : pending.map(a => (
                         <div key={a.id} className="sun-card border-l-8 border-[#3e5622]">
-                            <div className="font-black text-[#1a2e05] text-lg">{a.customerName || 'Unassigned'}</div>
+                            <div className="font-black text-[#1a2e05] text-lg">{a.customerName || 'Unassigned Client'}</div>
                             <p className="text-xs font-bold text-stone-400 mb-6 uppercase tracking-widest">{a.service}</p>
                             <button onClick={() => sendSMS(a)} className="btn-primary py-4 text-sm uppercase">Send Text</button>
                         </div>
@@ -232,42 +237,70 @@
             );
         };
 
-        const NewJobModal = ({ contractors, onClose }) => {
-            const [form, setForm] = useState({ contractorName: contractors[0]?.name || '', service: SERVICES[0], address: '', date: '', description: '', price: '', customerName: '' });
+        const JobModal = ({ contractors, onClose, job }) => {
+            const [form, setForm] = useState(job || { contractorName: 'None', service: SERVICES[0], address: '', date: '', description: '', price: '', customerName: '' });
             const handleSave = async () => {
                 if(!form.date) return alert("Date is required.");
                 try {
-                    await fb.addDoc(fb.collection(fb.db, "appointments"), { ...form, status: 'Scheduled', reminderSent: false });
+                    const data = { ...form, price: Number(form.price), status: 'Scheduled', reminderSent: job ? form.reminderSent : false };
+                    if (job) await fb.updateDoc(fb.doc(fb.db, "appointments", job.id), data);
+                    else await fb.addDoc(fb.collection(fb.db, "appointments"), data);
                     onClose();
                 } catch (e) { alert("Error: " + e.message); }
             };
             return (
                 <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}><div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-6"></div>
-                    <h3 className="text-2xl font-black mb-6 text-[#1a2e05]">New Job</h3>
-                    <div className="mb-4"><label className="input-label">Contractor</label><select className="input-field" onChange={e=>setForm({...form, contractorName: e.target.value})} value={form.contractorName}>{contractors.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
-                    <div className="mb-4"><label className="input-label">Service</label><select className="input-field" onChange={e=>setForm({...form, service: e.target.value})}>{SERVICES.map(sv => <option key={sv} value={sv}>{sv}</option>)}</select></div>
-                    <div className="mb-4"><label className="input-label">Address</label><input className="input-field" onChange={e=>setForm({...form, address: e.target.value})} /></div>
-                    <div className="mb-4"><label className="input-label">Date/Time</label><input type="datetime-local" className="input-field" onChange={e=>setForm({...form, date: e.target.value})} /></div>
-                    <div className="mb-4"><label className="input-label">Description</label><textarea className="input-field h-24" onChange={e=>setForm({...form, description: e.target.value})} /></div>
-                    <div className="mb-4"><label className="input-label">Estimate ($)</label><input type="number" className="input-field" onChange={e=>setForm({...form, price: e.target.value})} /></div>
-                    <div className="mb-4"><label className="input-label">Customer Name</label><input className="input-field" onChange={e=>setForm({...form, customerName: e.target.value})} /></div>
+                    <h3 className="text-2xl font-black mb-6 text-[#1a2e05]">{job ? 'Edit Job' : 'New Job'}</h3>
+                    <div className="mb-4"><label className="input-label">Contractor</label><select className="input-field" onChange={e=>setForm({...form, contractorName: e.target.value})} value={form.contractorName}><option value="None">None</option>{contractors.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
+                    <div className="mb-4"><label className="input-label">Service</label><select className="input-field" onChange={e=>setForm({...form, service: e.target.value})} value={form.service}>{SERVICES.map(sv => <option key={sv} value={sv}>{sv}</option>)}</select></div>
+                    <div className="mb-4"><label className="input-label">Address</label><input className="input-field" value={form.address} onChange={e=>setForm({...form, address: e.target.value})} /></div>
+                    <div className="mb-4"><label className="input-label">Date/Time</label><input type="datetime-local" className="input-field" value={form.date} onChange={e=>setForm({...form, date: e.target.value})} /></div>
+                    <div className="mb-4"><label className="input-label">Description</label><textarea className="input-field h-24" value={form.description} onChange={e=>setForm({...form, description: e.target.value})} /></div>
+                    <div className="mb-4"><label className="input-label">Estimate ($)</label><input type="number" className="input-field" value={form.price} onChange={e=>setForm({...form, price: e.target.value})} /></div>
+                    <div className="mb-4"><label className="input-label">Customer Name</label><input className="input-field" value={form.customerName} onChange={e=>setForm({...form, customerName: e.target.value})} /></div>
                     <button onClick={handleSave} className="btn-primary">SAVE JOB</button>
                 </div></div>
             );
         };
 
-        const JobDetailModal = ({ job, onClose }) => {
+        const EditPersonModal = ({ entity, onClose }) => {
+            const [form, setForm] = useState({ name: entity.name, phone: entity.phone });
+            const save = async () => {
+                const coll = entity.type === 'clients' ? "customers" : "contractors";
+                await fb.updateDoc(fb.doc(fb.db, coll, entity.id), form);
+                onClose();
+            };
+            const del = async () => { if(confirm("Delete record?")) { await fb.deleteDoc(fb.doc(fb.db, entity.type === 'clients' ? "customers" : "contractors", entity.id)); onClose(); } };
+            return (
+                <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}><div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-6"></div>
+                    <h3 className="text-2xl font-black mb-6">Edit {entity.type === 'clients' ? 'Client' : 'Contractor'}</h3>
+                    <input className="input-field mb-4" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} />
+                    <input className="input-field mb-8" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} />
+                    <button onClick={save} className="btn-primary">UPDATE</button>
+                    <button onClick={del} className="w-full mt-6 text-red-400 font-bold text-xs uppercase">Delete Record</button>
+                </div></div>
+            );
+        };
+
+        const JobDetailModal = ({ job, contractors, onClose, onEdit }) => {
+            const [isEditing, setIsEditing] = useState(false);
             const markDone = async () => { await fb.updateDoc(fb.doc(fb.db, "appointments", job.id), { status: 'Completed' }); onClose(); };
             const deleteJob = async () => { if(confirm("Delete this record?")) { await fb.deleteDoc(fb.doc(fb.db, "appointments", job.id)); onClose(); } };
+            if (isEditing) return <JobModal job={job} contractors={contractors} onClose={onClose} />;
             return (
                 <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}><div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-8"></div>
-                    <h2 className="text-3xl font-black text-[#1a2e05] mb-1">{job.service}</h2>
+                    <div className="flex justify-between items-start mb-1">
+                        <h2 className="text-3xl font-black text-[#1a2e05]">{job.service}</h2>
+                        <button onClick={() => setIsEditing(true)} className="bg-stone-100 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-tighter">Edit</button>
+                    </div>
                     <p className="text-xl font-bold text-[#c5a059] mb-6">{job.customerName || 'Unassigned'}</p>
                     <div className="bg-stone-50 p-4 rounded-xl mb-6 border border-stone-100">
                         <p className="text-[10px] font-black uppercase text-stone-400 mb-1">Contractor</p>
                         <p className="font-bold text-[#3e5622]">{job.contractorName || 'None'}</p>
                         <p className="text-[10px] font-black uppercase text-stone-400 mt-4 mb-1">Description</p>
                         <p className="text-sm text-stone-600 leading-relaxed">{job.description || "None"}</p>
+                        <p className="text-[10px] font-black uppercase text-stone-400 mt-4 mb-1">Estimate</p>
+                        <p className="font-bold text-stone-800">${Number(job.price).toLocaleString()}</p>
                     </div>
                     <button onClick={() => window.open(`http://maps.apple.com/?q=${encodeURIComponent(job.address)}`)} className="w-full text-left bg-blue-50 p-5 rounded-2xl text-blue-700 font-bold border border-blue-100 flex items-center justify-between mb-4">Open Maps 📍</button>
                     <button onClick={markDone} className="btn-primary mb-3">✅ MARK AS DONE</button>
