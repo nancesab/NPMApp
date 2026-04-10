@@ -109,7 +109,7 @@
                     </div>
 
                     {isAddingJob && <JobModal contractors={contractors} onClose={()=>setIsAddingJob(false)} />}
-                    {selectedJob && <JobDetailModal job={selectedJob} contractors={contractors} onClose={()=>setSelectedJob(null)} onEdit={setSelectedJob} />}
+                    {selectedJob && <JobDetailModal job={selectedJob} contractors={contractors} onClose={()=>setSelectedJob(null)} />}
                     {editEntity && <EditPersonModal entity={editEntity} onClose={()=>setEditEntity(null)} />}
                 </div>
             );
@@ -165,6 +165,7 @@
         };
 
         const JobCard = ({ j, onClick }) => {
+            // Logic to pull client name if no contractor is selected
             const subLabel = (!j.contractorName || j.contractorName === "None") ? (j.customerName || "Unassigned") : j.contractorName;
             return (
                 <div onClick={onClick} className="sun-card border-l-8 border-[#c5a059] flex justify-between items-center">
@@ -172,10 +173,10 @@
                         <div className="font-black text-lg text-[#1a2e05] truncate">{j.service}</div>
                         <div className="text-stone-500 font-bold text-xs uppercase tracking-wide truncate">{subLabel}</div>
                     </div>
-                    <div className="font-black text-[#3e5622] ml-2 font-mono">${Number(j.price).toLocaleString()}</div>
+                    <div className="font-black text-[#3e5622] ml-2 font-mono">${Number(j.price || 0).toLocaleString()}</div>
                 </div>
             );
-        }
+        };
 
         const AppointmentsList = ({ appointments, onJobClick }) => (
             <div className="animate-in fade-in">
@@ -217,7 +218,7 @@
             const pending = appointments.filter(a => !a.reminderSent);
             const sendSMS = (appt) => {
                 const cust = customers.find(c => c.name === appt.customerName);
-                if(!cust) return alert("No client contact found for this job.");
+                if(!cust) return alert("Contact not found.");
                 const datePretty = appt.date ? new Date(appt.date).toLocaleDateString() : 'scheduled date';
                 const msg = `Hi ${appt.customerName}, this is Nance Property Maintenance. Just a friendly reminder for your ${appt.service} scheduled for ${datePretty}. See you soon!`;
                 window.open(`sms:${cust.phone}?&body=${encodeURIComponent(msg)}`);
@@ -282,7 +283,7 @@
             );
         };
 
-        const JobDetailModal = ({ job, contractors, onClose, onEdit }) => {
+        const JobDetailModal = ({ job, contractors, onClose }) => {
             const [isEditing, setIsEditing] = useState(false);
             const markDone = async () => { await fb.updateDoc(fb.doc(fb.db, "appointments", job.id), { status: 'Completed' }); onClose(); };
             const deleteJob = async () => { if(confirm("Delete this record?")) { await fb.deleteDoc(fb.doc(fb.db, "appointments", job.id)); onClose(); } };
@@ -300,7 +301,7 @@
                         <p className="text-[10px] font-black uppercase text-stone-400 mt-4 mb-1">Description</p>
                         <p className="text-sm text-stone-600 leading-relaxed">{job.description || "None"}</p>
                         <p className="text-[10px] font-black uppercase text-stone-400 mt-4 mb-1">Estimate</p>
-                        <p className="font-bold text-stone-800">${Number(job.price).toLocaleString()}</p>
+                        <p className="font-bold text-stone-800">${Number(job.price || 0).toLocaleString()}</p>
                     </div>
                     <button onClick={() => window.open(`http://maps.apple.com/?q=${encodeURIComponent(job.address)}`)} className="w-full text-left bg-blue-50 p-5 rounded-2xl text-blue-700 font-bold border border-blue-100 flex items-center justify-between mb-4">Open Maps 📍</button>
                     <button onClick={markDone} className="btn-primary mb-3">✅ MARK AS DONE</button>
