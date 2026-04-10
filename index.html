@@ -132,12 +132,22 @@
         );
 
         const Dashboard = ({ appointments, onJobClick }) => {
-            const todayStr = new Date().toISOString().split('T')[0];
-            const today = appointments.filter(a => a.date?.includes(todayStr));
+            const today = new Date();
+            const tomorrow = new Date();
+            tomorrow.setDate(today.getDate() + 1);
+
+            const format = (d) => d.toISOString().split('T')[0];
+            
+            const todayJobs = appointments.filter(a => a.date && a.date.startsWith(format(today)));
+            const tomorrowJobs = appointments.filter(a => a.date && a.date.startsWith(format(tomorrow)));
+
             return (
                 <div className="animate-in fade-in">
-                    <h3 className="font-black text-[#1a2e05] mt-2 mb-4 px-2 uppercase text-xs tracking-widest italic">Today's Jobs ({today.length})</h3>
-                    {today.length === 0 ? <p className="px-2 text-stone-300 italic">No jobs today.</p> : today.map(j => <JobCard key={j.id} j={j} onClick={()=>onJobClick(j)} />)}
+                    <h3 className="font-black text-[#1a2e05] mt-2 mb-4 px-2 uppercase text-xs tracking-widest italic">Today's Jobs</h3>
+                    {todayJobs.length === 0 ? <p className="px-2 mb-8 text-stone-300 italic text-sm">Nothing for today.</p> : todayJobs.map(j => <JobCard key={j.id} j={j} onClick={()=>onJobClick(j)} />)}
+                    
+                    <h3 className="font-black text-[#1a2e05] mt-8 mb-4 px-2 uppercase text-xs tracking-widest italic">Tomorrow's Jobs</h3>
+                    {tomorrowJobs.length === 0 ? <p className="px-2 text-stone-300 italic text-sm">Nothing for tomorrow.</p> : tomorrowJobs.map(j => <JobCard key={j.id} j={j} onClick={()=>onJobClick(j)} />)}
                 </div>
             );
         };
@@ -154,8 +164,8 @@
 
         const AppointmentsList = ({ appointments, onJobClick }) => (
             <div className="animate-in fade-in">
-                <h3 className="font-black text-[#1a2e05] uppercase text-xs tracking-widest mb-6 px-2 italic">Active Schedule</h3>
-                {appointments.map(j => <JobCard key={j.id} j={j} onClick={() => onJobClick(j)} />)}
+                <h3 className="font-black text-[#1a2e05] uppercase text-xs tracking-widest mb-6 px-2 italic">Full Schedule</h3>
+                {appointments.length === 0 ? <p className="px-2 text-stone-300 italic">No scheduled jobs.</p> : appointments.map(j => <JobCard key={j.id} j={j} onClick={() => onJobClick(j)} />)}
             </div>
         );
 
@@ -199,7 +209,7 @@
             return (
                 <div className="animate-in fade-in">
                     <h3 className="font-black text-[#1a2e05] mb-6 px-2 uppercase text-xs tracking-widest italic">Pending Reminders</h3>
-                    {pending.map(a => (
+                    {pending.length === 0 ? <p className="px-2 text-stone-300 italic">No pending reminders.</p> : pending.map(a => (
                         <div key={a.id} className="sun-card border-l-8 border-[#3e5622]">
                             <div className="font-black text-[#1a2e05] text-lg">{a.customerName || 'Unassigned'}</div>
                             <p className="text-xs font-bold text-stone-400 mb-6 uppercase tracking-widest">{a.service}</p>
