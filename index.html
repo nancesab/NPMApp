@@ -126,8 +126,9 @@
 
         const JobCard = ({ j, onClick }) => {
             const displayDate = j.date ? new Date(j.date).toLocaleDateString() : 'No Date';
+            const isCompleted = j.status === 'Completed';
             return (
-                <div onClick={onClick} className="sun-card border-l-8 border-[#c5a059] flex justify-between items-center cursor-pointer">
+                <div onClick={onClick} className={`sun-card border-l-8 ${isCompleted ? 'border-stone-300 opacity-60' : 'border-[#c5a059]'} flex justify-between items-center cursor-pointer`}>
                     <div className="overflow-hidden flex-1 pr-2">
                         <div className="font-black text-lg text-[#1a2e05] truncate">{j.service}</div>
                         <div className="text-[#c5a059] font-bold text-[10px] uppercase tracking-wider truncate">Contractor: {j.contractorName || 'N/A'}</div>
@@ -166,10 +167,16 @@
 
         const AppointmentsList = ({ appointments, onJobClick }) => {
             const scheduled = appointments.filter(a => a.status === 'Scheduled');
+            const completed = appointments.filter(a => a.status === 'Completed');
             return (
                 <div className="animate-in fade-in">
-                    <h3 className="font-black text-[#1a2e05] mb-6 px-2 uppercase text-xs tracking-widest italic">Master Schedule</h3>
-                    {scheduled.map(j => <JobCard key={j.id} j={j} onClick={()=>onJobClick(j)} />)}
+                    <h3 className="font-black text-[#1a2e05] mb-4 px-2 uppercase text-xs tracking-widest italic">Master Schedule</h3>
+                    {scheduled.length === 0 ? <p className="text-stone-300 italic px-2 mb-8">Empty.</p> : scheduled.map(j => <JobCard key={j.id} j={j} onClick={()=>onJobClick(j)} />)}
+                    
+                    <div className="h-10"></div>
+                    
+                    <h3 className="font-black text-stone-400 mb-4 px-2 uppercase text-xs tracking-widest italic">Job History</h3>
+                    {completed.length === 0 ? <p className="text-stone-300 italic px-2">No completed jobs yet.</p> : completed.map(j => <JobCard key={j.id} j={j} onClick={()=>onJobClick(j)} />)}
                 </div>
             );
         };
@@ -205,7 +212,10 @@
                 const c = customers.find(x => x.name.toLowerCase().trim() === (appt.customerName || "").toLowerCase().trim());
                 const targetPhone = appt.customerPhone || (c ? c.phone : "");
                 if(!targetPhone) return alert("No phone number found for this job.");
-                const msg = `Hi ${appt.customerName || 'there'}, this is NPM. Just confirming your ${appt.service} on ${new Date(appt.date).toLocaleDateString()}. See you then!`;
+                
+                // Professional branding for the business owner feel
+                const msg = `Hi ${appt.customerName || 'there'}, this is Nance Property Maintenance. This message is to confirm your ${appt.service} scheduled for ${new Date(appt.date).toLocaleDateString()}. Please let us know if you have any questions!`;
+                
                 window.open(`sms:${targetPhone}?&body=${encodeURIComponent(msg)}`);
                 window.NPM_FB.updateDoc(window.NPM_FB.doc(window.NPM_FB.db, "appointments", appt.id), { reminderSent: true });
             };
@@ -230,7 +240,6 @@
                 if(!form.date) return alert("Select a date.");
                 const fb = window.NPM_FB;
 
-                // Only handle customer sync if we are creating a NEW job
                 if(!job && form.customerName && form.customerName.trim()) {
                     const existing = customers.find(c => c.name.toLowerCase().trim() === form.customerName.toLowerCase().trim());
                     if(!existing) {
@@ -258,7 +267,6 @@
                     onClose();
                 } catch (e) {
                     alert("Error saving job.");
-                    console.error(e);
                 }
             };
 
