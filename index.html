@@ -3,21 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <title>NPM App</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
-        body { background-color: #f8f8f8; font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 0; }
+        :root { --forest: #1a2e05; --grass: #3e5622; --dirt: #c5a059; }
+        body { 
+            background-color: #f8f8f8; 
+            font-family: -apple-system, system-ui, sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            overflow-x: hidden;
+            touch-action: manipulation; /* Prevents zooming on fast taps */
+        }
         .input-label { @apply text-[10px] font-black uppercase text-stone-400 mb-1.5 tracking-widest block; }
         .input-field { width: 100%; padding: 1rem; border-radius: 1rem; border: 2px solid #f1f1f1; background: #fafafa; font-size: 1rem; font-weight: 700; outline: none; }
-        .btn-primary { @apply bg-[#1a2e05] text-white font-black py-5 px-6 rounded-2xl shadow-lg active:bg-black w-full text-xl text-center block mt-4; }
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-around; padding-top: 12px; padding-bottom: calc(20px + env(safe-area-inset-bottom)); z-index: 1000; }
-        .floating-add-bar { position: fixed; bottom: calc(100px + env(safe-area-inset-bottom)); left: 20px; right: 20px; z-index: 900; @apply bg-[#c5a059] text-white py-5 rounded-2xl shadow-2xl flex items-center justify-center gap-3 font-black uppercase tracking-widest; }
-        .sun-card { @apply bg-white rounded-3xl shadow-sm border border-stone-200 p-5 mb-4; }
+        .floating-add-bar { position: fixed; bottom: calc(100px + env(safe-area-inset-bottom)); left: 20px; right: 20px; z-index: 900; @apply bg-[#c5a059] text-white py-5 rounded-2xl shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-transform font-black uppercase tracking-widest; }
+        .sun-card { @apply bg-white rounded-3xl shadow-sm border border-stone-200 p-5 mb-4 active:scale-[0.98] transition-all; }
+        .btn-primary { @apply bg-[#1a2e05] text-white font-black py-5 px-6 rounded-2xl shadow-lg active:bg-black w-full text-xl text-center block mt-4; }
         .modal-overlay { @apply fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] flex items-end justify-center; }
-        .modal-content { @apply bg-white w-full max-w-md rounded-t-[3rem] p-6 pb-32 max-h-[92vh] overflow-y-auto; }
+        .modal-content { @apply bg-white w-full max-w-md rounded-t-[3rem] p-6 pb-32 animate-in slide-in-from-bottom duration-300 max-h-[92vh] overflow-y-auto; }
     </style>
 </head>
 <body>
@@ -40,8 +49,6 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        
-        // Attach to window so React can see it
         window.NPM_FB = { auth, db, addDoc, collection, query, onSnapshot, doc, updateDoc, deleteDoc, signInWithEmailAndPassword, signOut, onAuthStateChanged, orderBy, where };
     </script>
 
@@ -62,21 +69,16 @@
             const [initializing, setInitializing] = useState(true);
 
             useEffect(() => {
-                // Fail-safe: If Firebase hasn't responded in 2.5 seconds, show login anyway
-                const timer = setTimeout(() => setInitializing(false), 2500);
-
-                const checkAuth = setInterval(() => {
+                const checkFB = setInterval(() => {
                     if (window.NPM_FB) {
-                        clearInterval(checkAuth);
-                        clearTimeout(timer);
+                        clearInterval(checkFB);
                         window.NPM_FB.onAuthStateChanged(window.NPM_FB.auth, (u) => {
                             setUser(u);
                             setInitializing(false);
                         });
                     }
                 }, 100);
-
-                return () => { clearInterval(checkAuth); clearTimeout(timer); };
+                return () => clearInterval(checkFB);
             }, []);
 
             useEffect(() => {
@@ -88,14 +90,20 @@
                 }
             }, [user]);
 
-            if (initializing) return <div className="flex h-screen items-center justify-center font-black text-stone-300 italic text-xl">CONNECTING...</div>;
-            
+            const changeTab = (t) => {
+                setView(t);
+                setIsAddingJob(false);
+                setSelectedJob(null);
+                setShowHistory(false);
+            };
+
+            if (initializing) return <div className="flex h-screen items-center justify-center font-black text-stone-300 italic text-xl">NPM...</div>;
             if (!user) return <LoginScreen onLogin={setUser} />;
 
             return (
                 <div className="max-w-md mx-auto min-h-screen pb-48">
                     <header className="p-6 pt-12 bg-[#1a2e05] text-white flex justify-between items-center rounded-b-[2.5rem] shadow-xl">
-                        <div><h1 className="text-2xl font-black italic">NPM App</h1><p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">Property Maintenance</p></div>
+                        <div><h1 className="text-2xl font-black italic tracking-tighter">NPM App</h1><p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">Nance Property Maintenance</p></div>
                         <button onClick={() => window.NPM_FB.signOut(window.NPM_FB.auth)} className="bg-white/10 px-4 py-2 rounded-full text-[10px] font-black uppercase">Exit</button>
                     </header>
 
@@ -109,10 +117,10 @@
                     <button onClick={() => setIsAddingJob(true)} className="floating-add-bar">+ NEW JOB</button>
 
                     <nav className="bottom-nav">
-                        <button onClick={()=>setView('dashboard')} className={`flex flex-col items-center flex-1 ${view==='dashboard'?'text-[#3e5622]':'text-stone-300'}`}>🏠<span className="text-[10px] font-bold uppercase">Home</span></button>
-                        <button onClick={()=>setView('appointments')} className={`flex flex-col items-center flex-1 ${view==='appointments'?'text-[#3e5622]':'text-stone-300'}`}>📅<span className="text-[10px] font-bold uppercase">Jobs</span></button>
-                        <button onClick={()=>setView('customers')} className={`flex flex-col items-center flex-1 ${view==='customers'?'text-[#3e5622]':'text-stone-300'}`}>👥<span className="text-[10px] font-bold uppercase">People</span></button>
-                        <button onClick={()=>setView('reminders')} className={`flex flex-col items-center flex-1 ${view==='reminders'?'text-[#3e5622]':'text-stone-300'}`}>🔔<span className="text-[10px] font-bold uppercase">Remind</span></button>
+                        <NavIcon active={view==='dashboard'} icon="🏠" label="Home" onClick={()=>changeTab('dashboard')} />
+                        <NavIcon active={view==='appointments'} icon="📅" label="Jobs" onClick={()=>changeTab('appointments')} />
+                        <NavIcon active={view==='customers'} icon="👥" label="People" onClick={()=>changeTab('customers')} />
+                        <NavIcon active={view==='reminders'} icon="🔔" label="Remind" onClick={()=>changeTab('reminders')} />
                     </nav>
 
                     {isAddingJob && <JobModal contractors={contractors} onClose={()=>setIsAddingJob(false)} />}
@@ -123,13 +131,216 @@
             );
         };
 
+        const NavIcon = ({ active, icon, label, onClick }) => (
+            <button onClick={onClick} className={`flex flex-col items-center flex-1 ${active ? 'text-[#3e5622]' : 'text-stone-300'}`}>
+                <span className="text-2xl">{icon}</span>
+                <span className="text-[10px] font-bold uppercase">{label}</span>
+            </button>
+        );
+
+        const Dashboard = ({ appointments, onJobClick, onTotalClick }) => {
+            const today = new Date();
+            const tomorrow = new Date(); tomorrow.setDate(today.getDate() + 1);
+            const lastWeek = new Date(); lastWeek.setDate(today.getDate() - 7);
+            
+            const getDS = (d) => d.toISOString().split('T')[0];
+            const tStr = getDS(today);
+            const mStr = getDS(tomorrow);
+
+            const completedLastWeek = appointments.filter(a => a.status === 'Completed' && new Date(a.date) >= lastWeek);
+            const weeklyTotal = completedLastWeek.reduce((sum, job) => sum + Number(job.price || 0), 0);
+            
+            const scheduled = appointments.filter(a => a.status === 'Scheduled');
+            const todayJobs = scheduled.filter(a => a.date && a.date.includes(tStr));
+            const tomorrowJobs = scheduled.filter(a => a.date && a.date.includes(mStr));
+
+            return (
+                <div className="animate-in fade-in">
+                    <div onClick={onTotalClick} className="bg-[#3e5622] rounded-[2rem] p-6 mb-8 text-white shadow-inner active:scale-95 transition-all cursor-pointer">
+                        <label className="text-[10px] font-black uppercase opacity-60 tracking-widest block mb-1">Weekly Total (Last 7 Days)</label>
+                        <div className="text-4xl font-black tracking-tighter">${weeklyTotal.toLocaleString()}</div>
+                        <div className="text-[10px] font-bold opacity-40 uppercase mt-2">View Completed Jobs →</div>
+                    </div>
+
+                    <h3 className="font-black text-[#1a2e05] mb-4 px-2 uppercase text-xs tracking-widest italic">Today's Jobs</h3>
+                    {todayJobs.length === 0 ? <p className="text-stone-300 italic px-2 mb-8">No jobs today.</p> : todayJobs.map(j => <JobCard key={j.id} j={j} onClick={()=>onJobClick(j)} />)}
+                    
+                    <h3 className="font-black text-[#1a2e05] mt-8 mb-4 px-2 uppercase text-xs tracking-widest italic">Tomorrow's Jobs</h3>
+                    {tomorrowJobs.length === 0 ? <p className="text-stone-300 italic px-2">No jobs tomorrow.</p> : tomorrowJobs.map(j => <JobCard key={j.id} j={j} onClick={()=>onJobClick(j)} />)}
+                </div>
+            );
+        };
+
+        const JobCard = ({ j, onClick }) => (
+            <div onClick={onClick} className="sun-card border-l-8 border-[#c5a059] flex justify-between items-center cursor-pointer">
+                <div><div className="font-black text-lg text-[#1a2e05]">{j.service}</div><div className="text-stone-400 font-bold text-xs uppercase">{j.customerName}</div></div>
+                <div className="font-black text-[#3e5622]">${Number(j.price || 0).toLocaleString()}</div>
+            </div>
+        );
+
+        const AppointmentsList = ({ appointments, onJobClick }) => {
+            const scheduled = appointments.filter(a => a.status === 'Scheduled').sort((a,b) => new Date(a.date) - new Date(b.date));
+            return (
+                <div className="animate-in fade-in">
+                    <h3 className="font-black text-[#1a2e05] mb-6 px-2 uppercase text-xs italic tracking-widest">Master Schedule</h3>
+                    {scheduled.map(j => <JobCard key={j.id} j={j} onClick={()=>onJobClick(j)} />)}
+                </div>
+            );
+        };
+
+        const PeopleList = ({ customers, contractors, onEdit }) => {
+            const [tab, setTab] = useState('clients');
+            const [name, setName] = useState(''); const [phone, setPhone] = useState('');
+            
+            const addPerson = async () => {
+                if(!name) return;
+                const fb = window.NPM_FB;
+                await fb.addDoc(fb.collection(fb.db, tab === 'clients' ? "customers" : "contractors"), { name, phone });
+                setName(''); setPhone('');
+            };
+
+            return (
+                <div className="animate-in fade-in">
+                    <div className="flex bg-stone-100 p-1 rounded-2xl mb-6">
+                        <button onClick={()=>setTab('clients')} className={`flex-1 py-3 rounded-xl font-black text-xs uppercase ${tab==='clients' ? 'bg-white shadow-sm text-[#1a2e05]' : 'text-stone-400'}`}>Clients</button>
+                        <button onClick={()=>setTab('contractors')} className={`flex-1 py-3 rounded-xl font-black text-xs uppercase ${tab==='contractors' ? 'bg-white shadow-sm text-[#1a2e05]' : 'text-stone-400'}`}>Contractors</button>
+                    </div>
+                    <div className="sun-card bg-stone-50 border-dashed border-2 p-4">
+                        <input className="input-field mb-2" placeholder="Full Name" value={name} onChange={e=>setName(e.target.value)} />
+                        <input className="input-field mb-2" placeholder="Phone Number" value={phone} onChange={e=>setPhone(e.target.value)} />
+                        <button onClick={addPerson} className="w-full py-4 bg-[#3e5622] text-white font-black rounded-xl text-[10px] uppercase">Add to List</button>
+                    </div>
+                    {(tab === 'clients' ? customers : contractors).map(p => (
+                        <div key={p.id} onClick={() => onEdit({...p, type: tab})} className="sun-card flex justify-between items-center cursor-pointer">
+                            <div><h4 className="font-black text-lg text-[#1a2e05]">{p.name}</h4><p className="text-[#c5a059] font-bold text-xs">{p.phone}</p></div>
+                            <span className="text-stone-200">✎</span>
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+
+        const RemindersView = ({ appointments, customers }) => {
+            const pending = appointments.filter(a => a.status === 'Scheduled' && !a.reminderSent);
+            const sendSMS = (appt) => {
+                const c = customers.find(x => x.name === appt.customerName);
+                if(!c) return alert("Customer phone not found.");
+                const msg = `Hi ${appt.customerName}, this is NPM. Confirming your ${appt.service} on ${new Date(appt.date).toLocaleDateString()}. See you then!`;
+                window.open(`sms:${c.phone}?&body=${encodeURIComponent(msg)}`);
+                window.NPM_FB.updateDoc(window.NPM_FB.doc(window.NPM_FB.db, "appointments", appt.id), { reminderSent: true });
+            };
+            return (
+                <div className="animate-in fade-in">
+                    <h3 className="font-black text-[#1a2e05] mb-6 px-2 uppercase text-xs italic tracking-widest">Pending Reminders</h3>
+                    {pending.map(a => (
+                        <div key={a.id} className="sun-card border-l-8 border-[#3e5622] p-6">
+                            <div className="font-black text-xl text-[#1a2e05] mb-1">{a.customerName}</div>
+                            <div className="text-xs font-bold text-stone-400 uppercase mb-6">{a.service}</div>
+                            <button onClick={() => sendSMS(a)} className="btn-primary py-4 text-xs">SEND CONFIRMATION TEXT</button>
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+
+        const JobModal = ({ contractors, onClose, job }) => {
+            const [form, setForm] = useState(job || { contractorName: 'None', service: SERVICES[0], address: '', date: '', description: '', price: '', customerName: '', status: 'Scheduled' });
+            const handleSave = async () => {
+                if(!form.date) return alert("Select a date.");
+                const fb = window.NPM_FB;
+                const data = { ...form, price: Number(form.price) };
+                if (job) await fb.updateDoc(fb.doc(fb.db, "appointments", job.id), data);
+                else await fb.addDoc(fb.collection(fb.db, "appointments"), data);
+                onClose();
+            };
+            return (
+                <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}><div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-6"></div>
+                    <h3 className="text-2xl font-black mb-6 uppercase italic text-[#1a2e05]">{job ? 'Edit Job' : 'New Job'}</h3>
+                    <div className="mb-4"><label className="input-label">Service Type</label><select className="input-field" value={form.service} onChange={e=>setForm({...form, service: e.target.value})}>{SERVICES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
+                    <div className="mb-4"><label className="input-label">Contractor</label><select className="input-field" value={form.contractorName} onChange={e=>setForm({...form, contractorName: e.target.value})}><option value="None">None</option>{contractors.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
+                    <div className="mb-4"><label className="input-label">Price ($)</label><input type="number" className="input-field" value={form.price} onChange={e=>setForm({...form, price: e.target.value})} /></div>
+                    <div className="mb-4"><label className="input-label">Date & Time</label><input type="datetime-local" className="input-field" value={form.date} onChange={e=>setForm({...form, date: e.target.value})} /></div>
+                    <div className="mb-4"><label className="input-label">Job Address</label><input className="input-field" value={form.address} onChange={e=>setForm({...form, address: e.target.value})} /></div>
+                    <div className="mb-4"><label className="input-label">Customer Name</label><input className="input-field" value={form.customerName} onChange={e=>setForm({...form, customerName: e.target.value})} /></div>
+                    <div className="mb-4"><label className="input-label">Status</label><select className="input-field" value={form.status} onChange={e=>setForm({...form, status: e.target.value})}><option value="Scheduled">Scheduled</option><option value="Completed">Completed</option></select></div>
+                    <button onClick={handleSave} className="btn-primary">SAVE JOB</button>
+                </div></div>
+            );
+        };
+
+        const JobDetailModal = ({ job, contractors, onClose }) => {
+            const [isEditing, setIsEditing] = useState(false);
+            const fb = window.NPM_FB;
+            const toggleStatus = async () => { 
+                const newStatus = job.status === 'Scheduled' ? 'Completed' : 'Scheduled';
+                await fb.updateDoc(fb.doc(fb.db, "appointments", job.id), { status: newStatus }); 
+                onClose(); 
+            };
+            const deleteJob = async () => { if(confirm("Delete this job?")) { await fb.deleteDoc(fb.doc(fb.db, "appointments", job.id)); onClose(); } };
+            
+            if (isEditing) return <JobModal job={job} contractors={contractors} onClose={onClose} />;
+            
+            return (
+                <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}><div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-8"></div>
+                    <div className="flex justify-between items-start mb-6">
+                        <div><h2 className="text-3xl font-black text-[#1a2e05]">{job.service}</h2><p className="text-xl font-bold text-[#c5a059]">{job.customerName}</p></div>
+                        <button onClick={()=>setIsEditing(true)} className="bg-stone-100 p-3 rounded-2xl font-black text-[10px] uppercase">Edit</button>
+                    </div>
+                    <div className="bg-stone-50 p-5 rounded-2xl mb-6">
+                        <p className="text-[10px] font-black uppercase text-stone-400 mb-1">Price</p><p className="font-black text-2xl text-[#3e5622] mb-4">${Number(job.price || 0).toLocaleString()}</p>
+                        <p className="text-[10px] font-black uppercase text-stone-400 mb-1">Address</p><p className="font-bold text-stone-700">{job.address || "No address provided"}</p>
+                    </div>
+                    <button onClick={() => window.open(`http://maps.apple.com/?q=${encodeURIComponent(job.address)}`)} className="btn-primary bg-blue-600 mb-2">OPEN IN MAPS 📍</button>
+                    <button onClick={toggleStatus} className="btn-primary">{job.status === 'Scheduled' ? '✅ MARK COMPLETED' : '📅 BACK TO SCHEDULE'}</button>
+                    <button onClick={deleteJob} className="w-full mt-6 text-[10px] font-black text-red-300 uppercase">Delete Record Permanently</button>
+                </div></div>
+            );
+        };
+
+        const WeeklyHistoryModal = ({ appointments, onJobClick, onClose }) => {
+            const today = new Date();
+            const lastWeek = new Date(); lastWeek.setDate(today.getDate() - 7);
+            const completed = appointments.filter(a => a.status === 'Completed' && new Date(a.date) >= lastWeek);
+            return (
+                <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}>
+                    <h3 className="text-2xl font-black mb-6 text-[#1a2e05] italic">Completed History</h3>
+                    <div className="space-y-3">
+                        {completed.map(j => (
+                            <div key={j.id} onClick={()=>onJobClick(j)} className="p-4 bg-stone-50 rounded-2xl flex justify-between items-center active:bg-stone-100 cursor-pointer">
+                                <div><p className="font-black text-[#1a2e05]">{j.service}</p><p className="text-[10px] font-bold text-stone-400 uppercase">{j.customerName}</p></div>
+                                <p className="font-black text-[#3e5622]">${Number(j.price || 0).toLocaleString()}</p>
+                            </div>
+                        ))}
+                    </div>
+                    <button onClick={onClose} className="btn-primary mt-8">DONE</button>
+                </div></div>
+            );
+        };
+
+        const EditPersonModal = ({ entity, onClose }) => {
+            const [form, setForm] = useState({ name: entity.name, phone: entity.phone });
+            const save = async () => {
+                const coll = entity.type === 'clients' ? "customers" : "contractors";
+                await window.NPM_FB.updateDoc(window.NPM_FB.doc(window.NPM_FB.db, coll, entity.id), form);
+                onClose();
+            };
+            return (
+                <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}>
+                    <h3 className="text-2xl font-black mb-6">Edit Contact</h3>
+                    <input className="input-field mb-4" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} />
+                    <input className="input-field mb-8" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} />
+                    <button onClick={save} className="btn-primary">UPDATE CONTACT</button>
+                </div></div>
+            );
+        };
+
         const LoginScreen = ({ onLogin }) => {
             const [email, setEmail] = useState(''); const [pass, setPass] = useState('');
             const handleLogin = async () => {
                 try {
                     const res = await window.NPM_FB.signInWithEmailAndPassword(window.NPM_FB.auth, email.trim(), pass);
                     onLogin(res.user);
-                } catch (e) { alert("Login Error. Ensure Email/Password Auth is ON in Firebase console."); }
+                } catch (e) { alert("Login failed. Check your credentials."); }
             };
             return (
                 <div className="flex flex-col h-screen items-center justify-center p-8 bg-white">
@@ -140,102 +351,6 @@
                 </div>
             );
         };
-
-        const Dashboard = ({ appointments, onJobClick, onTotalClick }) => {
-            const today = new Date();
-            const lastWeek = new Date(); lastWeek.setDate(today.getDate() - 7);
-            const getDS = (d) => d.toISOString().split('T')[0];
-
-            const completedLastWeek = appointments.filter(a => a.status === 'Completed' && new Date(a.date) >= lastWeek);
-            const weeklyTotal = completedLastWeek.reduce((sum, job) => sum + Number(job.price || 0), 0);
-            
-            const scheduled = appointments.filter(a => a.status === 'Scheduled' && a.date && a.date.includes(getDS(today)));
-
-            return (
-                <div>
-                    <div onClick={onTotalClick} className="bg-[#3e5622] rounded-[2rem] p-6 mb-8 text-white shadow-inner cursor-pointer active:scale-95 transition-all">
-                        <label className="text-[10px] font-black uppercase opacity-60 tracking-widest block mb-1">Weekly Total (Last 7 Days)</label>
-                        <div className="text-4xl font-black tracking-tighter">${weeklyTotal.toLocaleString()}</div>
-                        <div className="text-[10px] font-bold opacity-40 uppercase mt-2">View Completed Jobs →</div>
-                    </div>
-                    <h3 className="font-black text-[#1a2e05] mb-4 px-2 uppercase text-xs tracking-widest italic">Today's Jobs</h3>
-                    {scheduled.length === 0 ? <p className="text-stone-300 italic px-2">Clear for today.</p> : scheduled.map(j => (
-                        <div key={j.id} onClick={()=>onJobClick(j)} className="sun-card border-l-8 border-[#c5a059] flex justify-between items-center">
-                            <div><div className="font-black text-lg text-[#1a2e05]">{j.service}</div><div className="text-stone-400 font-bold text-xs uppercase">{j.customerName}</div></div>
-                            <div className="font-black text-[#3e5622]">${Number(j.price || 0).toLocaleString()}</div>
-                        </div>
-                    ))}
-                </div>
-            );
-        };
-
-        const WeeklyHistoryModal = ({ appointments, onJobClick, onClose }) => {
-            const today = new Date();
-            const lastWeek = new Date(); lastWeek.setDate(today.getDate() - 7);
-            const completed = appointments.filter(a => a.status === 'Completed' && new Date(a.date) >= lastWeek);
-
-            return (
-                <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}>
-                    <h3 className="text-2xl font-black mb-6 text-[#1a2e05]">Weekly History</h3>
-                    <div className="space-y-3">
-                        {completed.map(j => (
-                            <div key={j.id} onClick={()=>onJobClick(j)} className="p-4 bg-stone-50 rounded-2xl flex justify-between items-center active:bg-stone-100">
-                                <div><p className="font-black text-[#1a2e05]">{j.service}</p><p className="text-[10px] font-bold text-stone-400 uppercase">{j.customerName}</p></div>
-                                <p className="font-black text-[#3e5622]">${Number(j.price || 0).toLocaleString()}</p>
-                            </div>
-                        ))}
-                    </div>
-                    <button onClick={onClose} className="btn-primary mt-8">CLOSE</button>
-                </div></div>
-            );
-        };
-
-        const JobModal = ({ contractors, onClose, job }) => {
-            const [form, setForm] = useState(job || { contractorName: 'None', service: SERVICES[0], address: '', date: '', description: '', price: '', customerName: '', status: 'Scheduled' });
-            const handleSave = async () => {
-                if(!form.date) return alert("Date required");
-                const fb = window.NPM_FB;
-                const data = { ...form, price: Number(form.price) };
-                if (job) await fb.updateDoc(fb.doc(fb.db, "appointments", job.id), data);
-                else await fb.addDoc(fb.collection(fb.db, "appointments"), data);
-                onClose();
-            };
-            return (
-                <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}>
-                    <h3 className="text-2xl font-black mb-6 uppercase italic">Job Details</h3>
-                    <div className="mb-4"><label className="input-label">Customer Name</label><input className="input-field" value={form.customerName} onChange={e=>setForm({...form, customerName: e.target.value})} /></div>
-                    <div className="mb-4"><label className="input-label">Service Type</label><select className="input-field" value={form.service} onChange={e=>setForm({...form, service: e.target.value})}>{SERVICES.map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                    <div className="mb-4"><label className="input-label">Address</label><input className="input-field" value={form.address} onChange={e=>setForm({...form, address: e.target.value})} /></div>
-                    <div className="mb-4"><label className="input-label">Date</label><input type="datetime-local" className="input-field" value={form.date} onChange={e=>setForm({...form, date: e.target.value})} /></div>
-                    <div className="mb-4"><label className="input-label">Price ($)</label><input type="number" className="input-field" value={form.price} onChange={e=>setForm({...form, price: e.target.value})} /></div>
-                    <div className="mb-4"><label className="input-label">Job Status</label><select className="input-field" value={form.status} onChange={e=>setForm({...form, status: e.target.value})}><option value="Scheduled">Scheduled</option><option value="Completed">Completed</option></select></div>
-                    <button onClick={handleSave} className="btn-primary">SAVE JOB</button>
-                </div></div>
-            );
-        };
-
-        const JobDetailModal = ({ job, contractors, onClose }) => {
-            const [isEditing, setIsEditing] = useState(false);
-            if (isEditing) return <JobModal job={job} contractors={contractors} onClose={onClose} />;
-            return (
-                <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}>
-                    <h2 className="text-3xl font-black text-[#1a2e05] mb-1">{job.service}</h2>
-                    <p className="text-xl font-bold text-[#c5a059] mb-6">{job.customerName}</p>
-                    <div className="bg-stone-50 p-4 rounded-xl mb-6">
-                        <p className="text-[10px] font-black uppercase text-stone-400 mb-1">Status: <span className="text-[#3e5622]">{job.status}</span></p>
-                        <p className="text-[10px] font-black uppercase text-stone-400 mt-4 mb-1">Price</p>
-                        <p className="font-bold text-stone-800">${Number(job.price || 0).toLocaleString()}</p>
-                    </div>
-                    <button onClick={() => window.open(`http://maps.apple.com/?q=${encodeURIComponent(job.address)}`)} className="btn-primary bg-blue-600 mb-2">DIRECTIONS 📍</button>
-                    <button onClick={() => setIsEditing(true)} className="btn-primary bg-stone-200 !text-stone-800">EDIT DETAILS</button>
-                    <button onClick={onClose} className="w-full mt-4 text-xs font-bold text-stone-400 uppercase">Back</button>
-                </div></div>
-            );
-        };
-
-        const PeopleList = ({ customers, contractors, onEdit }) => <div><h2 className="font-black p-4 italic">Contact list coming in next sync...</h2></div>;
-        const AppointmentsList = () => <div><h2 className="font-black p-4 italic">Full schedule coming in next sync...</h2></div>;
-        const RemindersView = () => <div><h2 className="font-black p-4 italic">Reminders coming in next sync...</h2></div>;
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
