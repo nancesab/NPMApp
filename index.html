@@ -16,21 +16,29 @@
         
         /* Centered Login */
         .login-wrapper { height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 2rem; background: white; }
-        .form-group { width: 100%; max-width: 320px; margin-bottom: 1.5rem; @apply flex flex-col; }
-        .input-label { @apply text-[10px] font-black uppercase text-stone-400 mb-2 tracking-widest block; }
-        .input-field { width: 100%; padding: 1.25rem; border-radius: 1rem; border: 2px solid #f1f1f1; background: #fafafa; font-size: 1rem; font-weight: 700; outline: none; transition: all 0.2s; }
+        .form-group { width: 100%; max-width: 320px; margin-bottom: 1.25rem; @apply flex flex-col; }
+        .input-label { @apply text-[10px] font-black uppercase text-stone-400 mb-1.5 tracking-widest block; }
+        .input-field { width: 100%; padding: 1rem; border-radius: 1rem; border: 2px solid #f1f1f1; background: #fafafa; font-size: 1rem; font-weight: 700; outline: none; transition: all 0.2s; }
         .input-field:focus { border-color: #3e5622; background: white; }
 
-        /* Navigation & Floating Button */
+        /* Navigation & BIG New Job Button */
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-around; padding-top: 12px; padding-bottom: calc(20px + env(safe-area-inset-bottom)); z-index: 1000; box-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.05); }
         .nav-btn { @apply flex flex-col items-center transition-all flex-1; }
-        .floating-add { position: fixed; bottom: calc(90px + env(safe-area-inset-bottom)); right: 20px; z-index: 900; @apply bg-[#c5a059] text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center text-3xl font-bold active:scale-90 transition-transform; }
+        
+        .floating-add-bar { 
+            position: fixed; 
+            bottom: calc(100px + env(safe-area-inset-bottom)); 
+            left: 20px; 
+            right: 20px; 
+            z-index: 900; 
+            @apply bg-[#c5a059] text-white py-5 rounded-2xl shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-transform;
+        }
 
         /* UI Elements */
         .sun-card { @apply bg-white rounded-3xl shadow-sm border border-stone-200 p-5 mb-4 active:scale-[0.98] transition-all; }
         .btn-primary { @apply bg-[#1a2e05] text-white font-black py-5 px-6 rounded-2xl shadow-lg active:bg-black w-full text-xl text-center block mt-4 disabled:opacity-50; }
         .modal-overlay { @apply fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] flex items-end justify-center; }
-        .modal-content { @apply bg-white w-full max-w-md rounded-t-[3rem] p-8 pb-32 animate-in slide-in-from-bottom duration-300 max-h-[92vh] overflow-y-auto shadow-2xl; }
+        .modal-content { @apply bg-white w-full max-w-md rounded-t-[3rem] p-6 pb-32 animate-in slide-in-from-bottom duration-300 max-h-[92vh] overflow-y-auto shadow-2xl; }
     </style>
 </head>
 <body>
@@ -110,7 +118,10 @@
                         {view === 'reminders' && <RemindersView appointments={appointments} customers={customers} />}
                     </main>
 
-                    <button onClick={() => setIsAddingJob(true)} className="floating-add">+</button>
+                    <button onClick={() => setIsAddingJob(true)} className="floating-add-bar">
+                        <span className="text-2xl font-bold">+</span>
+                        <span className="font-black uppercase tracking-widest">New Job</span>
+                    </button>
 
                     <div className="bottom-nav">
                         <NavIcon active={view==='dashboard'} label="Home" icon="🏠" onClick={()=>setView('dashboard')} />
@@ -165,8 +176,8 @@
 
         const JobCard = ({ j, onClick }) => (
             <div onClick={onClick} className="sun-card border-l-8 border-[#c5a059] flex justify-between items-center">
-                <div className="overflow-hidden"><div className="font-black text-lg text-[#1a2e05] truncate">{j.service}</div><div className="text-stone-500 font-bold text-sm truncate">{j.customerName} | {j.contractorName}</div></div>
-                <div className="font-black text-[#3e5622] ml-2 font-mono">${j.price}</div>
+                <div className="overflow-hidden"><div className="font-black text-lg text-[#1a2e05] truncate">{j.service}</div><div className="text-stone-500 font-bold text-sm truncate">{j.customerName || 'Unassigned'} | {j.contractorName}</div></div>
+                <div className="font-black text-[#3e5622] ml-2 font-mono">${j.price || 0}</div>
             </div>
         );
 
@@ -225,7 +236,7 @@
                     <h3 className="font-black text-[#1a2e05] mb-6 px-2 uppercase text-xs tracking-widest italic">Pending Reminders</h3>
                     {pending.map(a => (
                         <div key={a.id} className="sun-card border-l-8 border-[#3e5622]">
-                            <div className="font-black text-[#1a2e05] text-lg">{a.customerName}</div>
+                            <div className="font-black text-[#1a2e05] text-lg">{a.customerName || 'Unassigned'}</div>
                             <p className="text-xs font-bold text-stone-400 mb-6 uppercase tracking-widest">{a.service}</p>
                             <button onClick={() => sendSMS(a)} className="btn-primary py-4 text-sm uppercase">Send Text</button>
                         </div>
@@ -235,18 +246,18 @@
         };
 
         const NewJobModal = ({ contractors, onClose }) => {
-            const [custName, setCustName] = useState('');
             const [contName, setContName] = useState(contractors[0]?.name || '');
             const [service, setService] = useState(SERVICES[0]);
             const [address, setAddress] = useState('');
             const [date, setDate] = useState('');
             const [desc, setDesc] = useState('');
             const [price, setPrice] = useState('');
+            const [custName, setCustName] = useState('');
             const [image, setImage] = useState(null);
             const [uploading, setUploading] = useState(false);
 
             const handleSave = async () => {
-                if(!custName || !date) return alert("Customer Name and Date required");
+                if(!date) return alert("Date and Time are required.");
                 setUploading(true);
                 let imgUrl = "";
                 if(image) {
@@ -261,15 +272,15 @@
             };
 
             return (
-                <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}><div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-8"></div>
-                    <h3 className="text-2xl font-black mb-8 text-[#1a2e05]">New Job</h3>
-                    <div className="form-group"><label className="input-label">Customer Name:</label><input className="input-field" onChange={e=>setCustName(e.target.value)} /></div>
+                <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}><div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-6"></div>
+                    <h3 className="text-2xl font-black mb-6 text-[#1a2e05]">New Job</h3>
                     <div className="form-group"><label className="input-label">Contractor:</label><select className="input-field" onChange={e=>setContName(e.target.value)}>{contractors.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
                     <div className="form-group"><label className="input-label">Service:</label><select className="input-field" onChange={e=>setService(e.target.value)}>{SERVICES.map(sv => <option key={sv} value={sv}>{sv}</option>)}</select></div>
                     <div className="form-group"><label className="input-label">Job Address:</label><input className="input-field" onChange={e=>setAddress(e.target.value)} /></div>
                     <div className="form-group"><label className="input-label">Date/Time:</label><input type="datetime-local" className="input-field" onChange={e=>setDate(e.target.value)} /></div>
-                    <div className="form-group"><label className="input-label">Description:</label><textarea className="input-field" onChange={e=>setDesc(e.target.value)} /></div>
+                    <div className="form-group"><label className="input-label">Job Description:</label><textarea className="input-field h-24" onChange={e=>setDesc(e.target.value)} /></div>
                     <div className="form-group"><label className="input-label">Estimate ($):</label><input type="number" className="input-field" onChange={e=>setPrice(e.target.value)} /></div>
+                    <div className="form-group"><label className="input-label">Customer Name:</label><input className="input-field" placeholder="Optional" onChange={e=>setCustName(e.target.value)} /></div>
                     <div className="form-group"><label className="input-label">Job Photo:</label><input type="file" accept="image/*" onChange={e=>setImage(e.target.files[0])} className="text-xs" /></div>
                     <button onClick={handleSave} disabled={uploading} className="btn-primary">{uploading ? "UPLOADING..." : "SAVE JOB"}</button>
                 </div></div>
@@ -280,8 +291,8 @@
             const markDone = async () => { await fb.updateDoc(fb.doc(fb.db, "appointments", job.id), {status: 'Completed'}); onClose(); };
             return (
                 <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}><div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-8"></div>
-                    <h2 className="text-3xl font-black text-[#1a2e05] mb-2">{job.service}</h2><p className="text-xl font-bold text-[#c5a059] mb-4">{job.customerName}</p>
-                    <p className="text-xs font-black uppercase text-stone-400 mb-2">Assignee: {job.contractorName}</p>
+                    <h2 className="text-3xl font-black text-[#1a2e05] mb-2">{job.service}</h2><p className="text-xl font-bold text-[#c5a059] mb-4">{job.customerName || 'Unassigned Client'}</p>
+                    <p className="text-xs font-black uppercase text-stone-400 mb-2 tracking-widest">Assignee: {job.contractorName}</p>
                     <p className="text-sm text-stone-600 mb-6 bg-stone-50 p-4 rounded-xl border border-stone-100">{job.description || "No description provided."}</p>
                     
                     {job.imageUrl && <img src={job.imageUrl} className="w-full h-48 object-cover rounded-2xl mb-6 shadow-sm" />}
@@ -290,7 +301,7 @@
                         Open Maps 📍
                     </button>
                     <button onClick={markDone} className="btn-primary mb-3">✅ MARK AS DONE</button>
-                    <button onClick={async() => {if(confirm("Delete?")) {await fb.deleteDoc(fb.doc(fb.db, "appointments", job.id)); onClose();}}} className="w-full py-2 text-red-300 font-bold text-[10px] uppercase">Delete Record</button>
+                    <button onClick={async() => {if(confirm("Delete Job?")) {await fb.deleteDoc(fb.doc(fb.db, "appointments", job.id)); onClose();}}} className="w-full py-2 text-red-300 font-bold text-[10px] uppercase">Delete Record</button>
                 </div></div>
             );
         };
