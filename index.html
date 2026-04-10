@@ -11,7 +11,6 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
-        /* CRITICAL: Lock the screen to prevent sliding/zooming */
         html, body { 
             position: fixed;
             overflow: hidden;
@@ -23,15 +22,14 @@
             font-family: -apple-system, system-ui, sans-serif;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
-            touch-action: none; /* Prevents all browser-level gestures */
+            touch-action: none;
         }
         #root { 
             height: 100%; 
             overflow-y: auto; 
-            touch-action: pan-y; /* Allow only vertical scrolling */
+            touch-action: pan-y; 
             -webkit-overflow-scrolling: touch; 
         }
-        
         .input-label { @apply text-[10px] font-black uppercase text-stone-400 mb-1.5 tracking-widest block; }
         .input-field { width: 100%; padding: 1rem; border-radius: 1rem; border: 2px solid #f1f1f1; background: #fafafa; font-size: 1rem; font-weight: 700; outline: none; }
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-around; padding-top: 12px; padding-bottom: calc(15px + env(safe-area-inset-bottom)); z-index: 1000; }
@@ -139,15 +137,21 @@
             );
         };
 
-        const JobCard = ({ j, onClick }) => (
-            <div onClick={onClick} className="sun-card border-l-8 border-[#c5a059] flex justify-between items-center cursor-pointer">
-                <div className="overflow-hidden">
-                    <div className="font-black text-lg text-[#1a2e05] truncate">{j.service}</div>
-                    <div className="text-[#c5a059] font-bold text-[10px] uppercase tracking-wider truncate">Assignee: {j.contractorName || 'N/A'}</div>
+        const JobCard = ({ j, onClick }) => {
+            const displayDate = j.date ? new Date(j.date).toLocaleDateString() : 'No Date';
+            return (
+                <div onClick={onClick} className="sun-card border-l-8 border-[#c5a059] flex justify-between items-center cursor-pointer">
+                    <div className="overflow-hidden flex-1 pr-2">
+                        <div className="font-black text-lg text-[#1a2e05] truncate">{j.service}</div>
+                        <div className="text-[#c5a059] font-bold text-[10px] uppercase tracking-wider truncate">Contractor: {j.contractorName || 'N/A'}</div>
+                    </div>
+                    <div className="text-right">
+                        <div className="font-black text-[#3e5622] font-mono">${Number(j.price || 0).toLocaleString()}</div>
+                        <div className="text-[9px] font-bold text-stone-400 uppercase tracking-tighter">Date: {displayDate}</div>
+                    </div>
                 </div>
-                <div className="font-black text-[#3e5622] ml-2 font-mono">${Number(j.price || 0).toLocaleString()}</div>
-            </div>
-        );
+            );
+        };
 
         const Dashboard = ({ appointments, onJobClick, onTotalClick }) => {
             const todayStr = new Date().toISOString().split('T')[0];
@@ -234,30 +238,25 @@
 
         const JobModal = ({ contractors, customers, onClose, job }) => {
             const [form, setForm] = useState(job || { service: SERVICES[0], contractorName: 'None', price: '', date: '', address: '', customerName: '', customerPhone: '', status: 'Scheduled' });
-            
             const save = async () => {
                 if(!form.date) return alert("Select a date.");
                 const fb = window.NPM_FB;
-                
-                // If a name was entered, ensure they are in the Customer list
-                if(form.customerName.trim()) {
+                if(form.customerName && form.customerName.trim()) {
                     const existing = customers.find(c => c.name.toLowerCase().trim() === form.customerName.toLowerCase().trim());
                     if(!existing) {
                         await fb.addDoc(fb.collection(fb.db, "customers"), { name: form.customerName, phone: form.customerPhone });
                     }
                 }
-
                 const data = { ...form, price: Number(form.price) };
                 if (job) await fb.updateDoc(fb.doc(fb.db, "appointments", job.id), data);
                 else await fb.addDoc(fb.collection(fb.db, "appointments"), { ...data, reminderSent: false });
                 onClose();
             };
-
             return (
                 <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}><div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-6"></div>
                     <h3 className="text-2xl font-black mb-6 uppercase italic">{job ? 'Edit Job' : 'New Job'}</h3>
                     <div className="mb-4"><label className="input-label">Service</label><select className="input-field" value={form.service} onChange={e=>setForm({...form, service: e.target.value})}>{SERVICES.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
-                    <div className="mb-4"><label className="input-label">Contractor (Display on Home)</label><select className="input-field" value={form.contractorName} onChange={e=>setForm({...form, contractorName: e.target.value})}><option value="None">None</option>{contractors.map(c=><option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
+                    <div className="mb-4"><label className="input-label">Contractor</label><select className="input-field" value={form.contractorName} onChange={e=>setForm({...form, contractorName: e.target.value})}><option value="None">None</option>{contractors.map(c=><option key={c.id} value={c.name}>{c.name}</option>)}</select></div>
                     <div className="mb-4"><label className="input-label">Price ($)</label><input type="number" className="input-field" value={form.price} onChange={e=>setForm({...form, price: e.target.value})} /></div>
                     <div className="mb-4"><label className="input-label">Date/Time</label><input type="datetime-local" className="input-field" value={form.date} onChange={e=>setForm({...form, date: e.target.value})} /></div>
                     <div className="mb-4"><label className="input-label">Job Address</label><input className="input-field" value={form.address} onChange={e=>setForm({...form, address: e.target.value})} /></div>
