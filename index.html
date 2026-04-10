@@ -12,31 +12,18 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
         html, body { 
-            position: fixed;
-            overflow: hidden;
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            background-color: #f8f8f8;
-            font-family: -apple-system, system-ui, sans-serif;
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-            touch-action: none;
+            position: fixed; overflow: hidden; width: 100%; height: 100%; margin: 0; padding: 0;
+            background-color: #f8f8f8; font-family: -apple-system, system-ui, sans-serif;
+            user-select: none; -webkit-tap-highlight-color: transparent; touch-action: none;
         }
-        #root { 
-            height: 100%; 
-            overflow-y: auto; 
-            touch-action: pan-y; 
-            -webkit-overflow-scrolling: touch; 
-        }
+        #root { height: 100%; overflow-y: auto; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
         .input-label { @apply text-[10px] font-black uppercase text-stone-400 mb-1.5 tracking-widest block; }
         .input-field { width: 100%; padding: 1rem; border-radius: 1rem; border: 2px solid #f1f1f1; background: #fafafa; font-size: 1rem; font-weight: 700; outline: none; }
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-around; padding-top: 12px; padding-bottom: calc(15px + env(safe-area-inset-bottom)); z-index: 1000; }
         .floating-add-bar { position: fixed; bottom: calc(90px + env(safe-area-inset-bottom)); left: 20px; right: 20px; z-index: 900; @apply bg-[#c5a059] text-white py-5 rounded-2xl shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-transform font-black uppercase tracking-widest; }
         .sun-card { @apply bg-white rounded-3xl shadow-sm border border-stone-200 p-5 mb-4 active:scale-[0.98] transition-all; }
-        .btn-primary { @apply bg-[#1a2e05] text-white font-black py-5 px-6 rounded-2xl shadow-lg active:bg-black w-full text-center block; }
-        .btn-cancel { @apply bg-stone-100 text-stone-400 font-black py-5 px-6 rounded-2xl w-full text-center block; }
+        .btn-primary { @apply bg-[#1a2e05] text-white font-black py-5 px-6 rounded-2xl shadow-lg active:scale-95 transition-transform w-full text-center block; }
+        .btn-cancel { @apply bg-stone-100 text-stone-400 font-black py-5 px-6 rounded-2xl w-full text-center block active:scale-95 transition-transform; }
         .modal-overlay { @apply fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] flex items-end justify-center; }
         .modal-content { @apply bg-white w-full max-w-md rounded-t-[3rem] p-6 pb-24 animate-in slide-in-from-bottom duration-300 max-h-[90vh] overflow-y-auto; }
     </style>
@@ -238,20 +225,43 @@
 
         const JobModal = ({ contractors, customers, onClose, job }) => {
             const [form, setForm] = useState(job || { service: SERVICES[0], contractorName: 'None', price: '', date: '', address: '', customerName: '', customerPhone: '', status: 'Scheduled' });
+            
             const save = async () => {
                 if(!form.date) return alert("Select a date.");
                 const fb = window.NPM_FB;
-                if(form.customerName && form.customerName.trim()) {
+
+                // Only handle customer sync if we are creating a NEW job
+                if(!job && form.customerName && form.customerName.trim()) {
                     const existing = customers.find(c => c.name.toLowerCase().trim() === form.customerName.toLowerCase().trim());
                     if(!existing) {
                         await fb.addDoc(fb.collection(fb.db, "customers"), { name: form.customerName, phone: form.customerPhone });
                     }
                 }
-                const data = { ...form, price: Number(form.price) };
-                if (job) await fb.updateDoc(fb.doc(fb.db, "appointments", job.id), data);
-                else await fb.addDoc(fb.collection(fb.db, "appointments"), { ...data, reminderSent: false });
-                onClose();
+
+                const cleanData = { 
+                    service: form.service || SERVICES[0],
+                    contractorName: form.contractorName || 'None',
+                    price: Number(form.price) || 0,
+                    date: form.date,
+                    address: form.address || '',
+                    customerName: form.customerName || '',
+                    customerPhone: form.customerPhone || '',
+                    status: form.status || 'Scheduled'
+                };
+
+                try {
+                    if (job && job.id) {
+                        await fb.updateDoc(fb.doc(fb.db, "appointments", job.id), cleanData);
+                    } else {
+                        await fb.addDoc(fb.collection(fb.db, "appointments"), { ...cleanData, reminderSent: false });
+                    }
+                    onClose();
+                } catch (e) {
+                    alert("Error saving job.");
+                    console.error(e);
+                }
             };
+
             return (
                 <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}><div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-6"></div>
                     <h3 className="text-2xl font-black mb-6 uppercase italic">{job ? 'Edit Job' : 'New Job'}</h3>
@@ -270,10 +280,13 @@
             );
         };
 
-        const JobDetailModal = ({ job, contractors, onClose }) => {
+        const JobDetailModal = ({ job, contractors, customers, onClose }) => {
             const [isEditing, setIsEditing] = useState(false);
             const toggle = async () => { await window.NPM_FB.updateDoc(window.NPM_FB.doc(window.NPM_FB.db, "appointments", job.id), { status: job.status === 'Scheduled' ? 'Completed' : 'Scheduled' }); onClose(); };
-            if (isEditing) return <JobModal job={job} contractors={contractors} onClose={onClose} />;
+            const del = async () => { if(confirm("Delete this job permanently?")) { await window.NPM_FB.deleteDoc(window.NPM_FB.doc(window.NPM_FB.db, "appointments", job.id)); onClose(); } };
+            
+            if (isEditing) return <JobModal job={job} contractors={contractors} customers={customers} onClose={onClose} />;
+            
             return (
                 <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e=>e.stopPropagation()}><div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-8"></div>
                     <div className="flex justify-between items-start mb-6">
@@ -286,6 +299,7 @@
                     </div>
                     <button onClick={() => window.open(`http://maps.apple.com/?q=${encodeURIComponent(job.address)}`)} className="btn-primary bg-blue-600 mb-2">DIRECTIONS 📍</button>
                     <button onClick={toggle} className="btn-primary">{job.status === 'Scheduled' ? '✅ MARK COMPLETED' : '📅 RE-OPEN'}</button>
+                    <button onClick={del} className="w-full mt-6 text-[10px] font-black text-red-300 uppercase tracking-widest">Delete Job</button>
                 </div></div>
             );
         };
